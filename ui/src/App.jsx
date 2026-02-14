@@ -17,7 +17,10 @@ import {
   Plus,
   Zap,
   Cpu,
-  FolderOpen
+  FolderOpen,
+  Paperclip,
+  Image as ImageIcon,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -54,6 +57,8 @@ function App() {
   const [messages, setMessages] = useState([
     { id: 1, text: "Dobrodošli! Ja sam vaš AI Agent. Kako vam mogu pomoći danas?", type: 'ai' }
   ]);
+  const [attachments, setAttachments] = useState([]);
+  const fileInputRef = useRef(null);
 
   const chatEndRef = useRef(null);
 
@@ -215,19 +220,29 @@ function App() {
   };
 
   const handleGenerate = async () => {
-    if (!aiPrompt.trim()) return;
+    if (!aiPrompt.trim() && attachments.length === 0) return;
     setLoading(true);
     addLog(`AI Robot: Izvršavam zadatak...`, 'info');
     try {
-      const res = await axios.post(`${API_BASE}/generate`, { prompt: aiPrompt, filename: newFileName });
+      const payload = {
+        prompt: aiPrompt,
+        filename: newFileName,
+        attachments: attachments.map(a => ({ type: a.type, data: a.data, name: a.name }))
+      };
+      const res = await axios.post(`${API_BASE}/generate`, payload);
       if (res.data.success) {
         addLog(`✓ Uspešno obavljeno!`, 'success');
-        setMessages(prev => [...prev, { id: Date.now(), text: `Zadatak je uspešno izvršen u fajlu: ${newFileName}. Kôd je generisan i osiguran.`, type: 'ai' }]);
+        setMessages(prev => [...prev, {
+          id: Date.now(),
+          text: `Zadatak završen u: ${newFileName}. Analizirao sam i priložene podatke.`,
+          type: 'ai'
+        }]);
         fetchStatus();
         setAiPrompt('');
+        setAttachments([]);
       } else {
         addLog(`✗ Neuspeh AI Agenta`, 'error');
-        setMessages(prev => [...prev, { id: Date.now(), text: "Nažalost, došlo je do greške pri izvršavanju zadatka. Proverite logove.", type: 'ai' }]);
+        setMessages(prev => [...prev, { id: Date.now(), text: "Greška pri radu sa prilozima.", type: 'ai' }]);
       }
     } catch (err) {
       addLog(`Greška API servisa`, 'error');
@@ -237,10 +252,63 @@ function App() {
   };
 
   const handleSendMessage = () => {
-    if (!aiPrompt.trim()) return;
-    const userMsg = { id: Date.now(), text: aiPrompt, type: 'user' };
+    if (!aiPrompt.trim() && attachments.length === 0) return;
+    const userMsg = {
+      id: Date.now(),
+      text: aiPrompt || "Analiziraj priloženo...",
+      type: 'user',
+      hasAttachments: attachments.length > 0
+    };
     setMessages(prev => [...prev, userMsg]);
     handleGenerate();
+  };
+
+  const handlePaste = (e) => {
+    const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+    for (let index in items) {
+      const item = items[index];
+      if (item.kind === 'file') {
+        const blob = item.getAsFile();
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setAttachments(prev => [...prev, {
+            id: Date.now() + Math.random(),
+            type: blob.type.startsWith('image/') ? 'image' : 'file',
+            name: blob.name || `Pasted Image ${new Date().toLocaleTimeString()}`,
+            data: event.target.result
+          }]);
+        };
+        if (blob.type.startsWith('image/')) {
+          reader.readAsDataURL(blob);
+        } else {
+          reader.readAsText(blob);
+        }
+      }
+    }
+  };
+
+  const handleFileSelect = (e) => {
+    const selectedFiles = Array.from(e.target.files);
+    selectedFiles.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setAttachments(prev => [...prev, {
+          id: Date.now() + Math.random(),
+          type: file.type.startsWith('image/') ? 'image' : 'file',
+          name: file.name,
+          data: event.target.result
+        }]);
+      };
+      if (file.type.startsWith('image/')) {
+        reader.readAsDataURL(file);
+      } else {
+        reader.readAsText(file);
+      }
+    });
+  };
+
+  const removeAttachment = (id) => {
+    setAttachments(prev => prev.filter(a => a.id !== id));
   };
 
   return (
@@ -367,16 +435,16 @@ function App() {
               <TerminalIcon size={14} /> Output Console
             </div>
           </div>
-          <div className="flex-grow overflow-y-auto p-4 font-mono text-[12px] space-y-1 bg-[#1e1e1e] custom-scrollbar">
+          <div className="flex-grow overflow-y-auto p-4 font-mono text-[12px] space-y-1 bg-vscode-bg custom-scrollbar">
             {logs.map(log => (
               <div key={log.id} className="flex gap-3">
-                <span className="text-gray-600 shrink-0">[{log.time}]</span>
-                <span className={log.type === 'success' ? 'text-green-400' : log.type === 'error' ? 'text-red-400' : log.type === 'warning' ? 'text-yellow-400' : 'text-gray-300'}>
+                <span className="text-gray-500 shrink-0">[{log.time}]</span>
+                <span className={log.type === 'success' ? 'text-green-400' : log.type === 'error' ? 'text-red-400' : log.type === 'warning' ? 'text-yellow-400' : 'text-vscode-text'}>
                   {log.msg}
                 </span>
               </div>
             ))}
-            {logs.length === 0 && <div className="text-gray-600 italic">Čekam na akciju...</div>}
+            {logs.length === 0 && <div className="text-gray-500 italic">Čekam na akciju...</div>}
           </div>
         </div>
       </div>
@@ -410,7 +478,7 @@ function App() {
                     <div key={msg.id} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-[85%] p-3 rounded-xl text-[13px] leading-relaxed shadow-sm ${msg.type === 'user'
                         ? 'bg-vscode-accent text-white rounded-tr-none'
-                        : 'bg-black/20 border border-white/5 text-vscode-text rounded-tl-none'
+                        : 'bg-white/5 border border-white/5 text-vscode-text rounded-tl-none'
                         }`}>
                         {msg.text}
                       </div>
@@ -420,6 +488,28 @@ function App() {
                 </div>
 
                 <div className="space-y-4 mt-auto border-t border-white/5 pt-4">
+                  {/* Attachment Previews */}
+                  {attachments.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-2 p-2 bg-black/20 rounded-lg border border-white/5 max-h-32 overflow-y-auto custom-scrollbar">
+                      {attachments.map(att => (
+                        <div key={att.id} className="relative group flex items-center gap-2 bg-[#2d2d30] p-2 rounded border border-white/10 hover:border-vscode-accent transition-colors">
+                          {att.type === 'image' ? (
+                            <img src={att.data} alt={att.name} className="w-8 h-8 rounded object-cover border border-white/5" />
+                          ) : (
+                            <FileText size={16} className="text-vscode-accent" />
+                          )}
+                          <span className="text-[10px] text-gray-400 truncate max-w-[100px]">{att.name}</span>
+                          <button
+                            onClick={() => removeAttachment(att.id)}
+                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="space-y-1">
                     <label className="text-[11px] text-gray-400 font-bold uppercase">LLM Brain Selection</label>
                     <select
@@ -431,15 +521,36 @@ function App() {
                     </select>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[11px] text-gray-400 font-bold uppercase">Poruka za Agenta</label>
+                  <div className="space-y-1 relative">
+                    <label className="text-[11px] text-gray-400 font-bold uppercase flex justify-between">
+                      <span>Poruka za Agenta</span>
+                      <span className="text-[9px] lowercase font-normal italic opacity-60">Ctrl+V za slike</span>
+                    </label>
                     <textarea
                       className="w-full bg-vscode-input border border-white/10 rounded p-3 text-[14px] h-32 focus:outline-none focus:border-vscode-accent resize-none placeholder:text-gray-600 text-vscode-text"
                       value={aiPrompt}
                       onChange={(e) => setAiPrompt(e.target.value)}
-                      placeholder="Pitajte agenta bilo šta..."
+                      onPaste={handlePaste}
+                      placeholder="Pitajte agenta bilo šta ili zalepite sliku..."
                       onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
                     />
+                    <div className="absolute bottom-3 right-3 flex gap-2">
+                      <button
+                        onClick={() => fileInputRef.current.click()}
+                        className="p-1.5 bg-black/40 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-colors"
+                        title="Dodaj fajl ili sliku"
+                      >
+                        <Paperclip size={16} />
+                      </button>
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        multiple
+                        onChange={handleFileSelect}
+                        accept="image/*,.py,.js,.html,.css,.txt,.md,.json"
+                      />
+                    </div>
                   </div>
 
                   <div className="flex gap-2">

@@ -48,13 +48,15 @@ class SecureOrchestrator:
         print(f"[Orchestrator] Inicijalizovan sa modelom: {self.model}")
         print(f"[Orchestrator] Radni direktorijum: {self.file_manager.BASE_DIR}")
     
-    def generate_and_validate_code(self, prompt: str, filename: str) -> Dict[str, Any]:
+    def generate_and_validate_code(self, prompt: str, filename: str, 
+                                  attachments: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         """
         Generiše kod pomoću LLM-a i validira ga kroz Security Sentinel.
         
         Args:
             prompt: Prompt za LLM.
             filename: Ime fajla u koji će kod biti upisan (relativna putanja).
+            attachments: Lista priloga (slike, fajlovi).
             
         Returns:
             Dict sa statusom, kodom, pretnjama i metrikama.
@@ -74,7 +76,7 @@ class SecureOrchestrator:
             
             # Generiši kod pomoću LLM-a
             try:
-                generated_code, tokens = self._call_llm(prompt)
+                generated_code, tokens = self._call_llm(prompt, attachments)
                 result['tokens_used'] += tokens
                 self.total_tokens_used += tokens
             except Exception as e:
@@ -114,35 +116,43 @@ class SecureOrchestrator:
         print(f"[Orchestrator] ✗ {result['message']}")
         return result
     
-    def _call_llm(self, prompt: str) -> tuple[str, int]:
+    def _call_llm(self, prompt: str, attachments: Optional[List[Dict[str, Any]]] = None) -> tuple[str, int]:
         """
-        Poziva LLM preko litellm biblioteke.
+        Poziva LLM preko litellm biblioteke sa podrškom za multimodalnost.
+        """
+        messages = [
+            {
+                "role": "system", 
+                "content": "Ti si ekspert Python programer. Generiši samo čist, bezbedan kod bez objašnjenja. Analiziraj sve priložene slike i fajlove kao dodatni kontekst za zadatak."
+            }
+        ]
         
-        Args:
-            prompt: Prompt za model.
-            
-        Returns:
-            Tuple (generisani_kod, broj_tokena).
-        """
+        user_content = [{"type": "text", "text": prompt}]
+        
+        if attachments:
+            for att in attachments:
+                if att['type'] == 'image' and att['data'].startswith('data:image'):
+                    user_content.append({
+                        "type": "image_url",
+                        "image_url": {"url": att['data']}
+                    })
+                elif att['type'] == 'file':
+                    # Dodaj sadržaj fajla u prompt kao kontekst
+                    file_context = f"\n\n--- KONTEKST FAJLA: {att['name']} ---\n{att['data']}\n--- KRAJ KONTEKSTA ---\n"
+                    user_content[0]["text"] += file_context
+        
+        messages.append({"role": "user", "content": user_content})
+        
         response = litellm.completion(
             model=self.model,
-            messages=[
-                {
-                    "role": "system",
-                    "content": "Ti si ekspert Python programer. Generiši samo čist, bezbedan kod bez objašnjenja."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            temperature=0.3,  # Niža temperatura za deterministički kod
+            messages=messages,
+            temperature=0.3
         )
         
         code = response.choices[0].message.content
         tokens = response.usage.total_tokens
         
-        # Ukloni markdown code fences ako postoje
+        # Ukloni markdown code fences
         if code.startswith('```'):
             lines = code.split('\n')
             code = '\n'.join(lines[1:-1]) if lines[-1].startswith('```') else '\n'.join(lines[1:])

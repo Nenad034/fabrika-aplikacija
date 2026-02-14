@@ -143,10 +143,15 @@ async def pick_file():
     except Exception as e:
         return {"success": False, "detail": str(e)}
 
+class GenerateRequest(BaseModel):
+    prompt: str
+    filename: str
+    attachments: Optional[List[Dict[str, Any]]] = None
+
 @app.post("/generate")
 async def generate_code(req: GenerateRequest):
     try:
-        result = orchestrator.generate_and_validate_code(req.prompt, req.filename)
+        result = orchestrator.generate_and_validate_code(req.prompt, req.filename, req.attachments)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
