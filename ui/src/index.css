@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background-color: #121212;
+  color: #cccccc;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}
+
+/* VS Code Specific Utility Classes (If Tailwind v4 needs manual theme extensions) */
+@theme {
+  --color-vscode-bg: #121212;
+  --color-vscode-editor: #1e1e1e;
+  --color-vscode-sidebar: #333333;
+  --color-vscode-activity: #2c2c2c;
+  --color-vscode-text: #cccccc;
+  --color-vscode-border: #444444;
+  --color-vscode-accent: #3b82f6;
+}

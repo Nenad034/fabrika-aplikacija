@@ -1,0 +1,14 @@
+# AI Fabrika - Zavisnosti
+# Master Prompt v3.0
+
+# Multi-LLM Gateway
+litellm>=1.30.0
+
+# Environment varijable
+python-dotenv>=1.0.0
+
+# Validacija i type safety
+pydantic>=2.0.0
+
+# Dodatne biblioteke za primere
+bcrypt>=4.0.0
