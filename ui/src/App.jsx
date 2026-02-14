@@ -241,19 +241,19 @@ function App() {
               exit={{ width: 0, opacity: 0 }}
               className="bg-vscode-sidebar border-r border-vscode-border flex flex-col overflow-hidden relative"
             >
-              <div className="p-4 uppercase text-[10px] font-bold tracking-widest text-[#888] flex justify-between items-center bg-black/10">
+              <div className="p-4 uppercase text-[12px] font-bold tracking-widest text-[#888] flex justify-between items-center bg-black/10">
                 <span>Explorer</span>
-                <Plus className="cursor-pointer hover:text-white" size={14} onClick={handleBrowseFile} />
+                <Plus className="cursor-pointer hover:text-white" size={17} onClick={handleBrowseFile} />
               </div>
 
               <div className="p-3 border-y border-white/5 space-y-2 bg-[#252526]/50">
                 <div className="flex items-center justify-between">
-                  <span className="text-[9px] text-gray-500 font-bold uppercase">Radni Folder</span>
-                  <button onClick={handleBrowse} className="p-1 hover:bg-white/10 rounded text-vscode-accent"><FolderOpen size={12} /></button>
+                  <span className="text-[11px] text-gray-500 font-bold uppercase">Radni Folder</span>
+                  <button onClick={handleBrowse} className="p-1 hover:bg-white/10 rounded text-vscode-accent"><FolderOpen size={14} /></button>
                 </div>
                 <input
                   type="text"
-                  className="w-full bg-[#1e1e1e] border border-white/10 rounded px-2 py-1 text-[10px] focus:outline-none focus:border-vscode-accent/50"
+                  className="w-full bg-[#1e1e1e] border border-white/10 rounded px-2 py-1 text-[12px] focus:outline-none focus:border-vscode-accent/50"
                   value={currentPath}
                   onChange={(e) => setCurrentPath(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSetPath()}
@@ -261,17 +261,17 @@ function App() {
               </div>
 
               <div className="flex-grow overflow-y-auto custom-scrollbar">
-                <div className="px-4 py-2 text-[10px] text-gray-500 font-bold uppercase">Fajlovi Projekta</div>
+                <div className="px-4 py-2 text-[12px] text-gray-500 font-bold uppercase">Fajlovi Projekta</div>
                 {files.length > 0 ? files.map(file => (
                   <div
                     key={file}
-                    className={`flex items-center px-4 py-1.5 cursor-pointer text-xs ${activeFile === file ? 'bg-vscode-accent/20 text-blue-400 border-l-2 border-vscode-accent' : 'hover:bg-white/5 text-gray-400'}`}
+                    className={`flex items-center px-4 py-2 cursor-pointer text-[14px] ${activeFile === file ? 'bg-vscode-accent/20 text-blue-400 border-l-2 border-vscode-accent' : 'hover:bg-white/5 text-gray-400'}`}
                     onClick={() => handleFileClick(file)}
                   >
-                    <FileCode size={14} className="mr-2" />
+                    <FileCode size={17} className="mr-2" />
                     <span className="truncate">{file.split('\\').pop()}</span>
                   </div>
-                )) : <div className="p-4 text-[10px] text-gray-600 italic">Prazan folder</div>}
+                )) : <div className="p-4 text-[12px] text-gray-600 italic">Prazan folder</div>}
               </div>
             </motion.div>
             <div
@@ -284,14 +284,14 @@ function App() {
 
       {/* Main Content (Editor + Output) */}
       <div className="flex-grow flex flex-col min-w-0 bg-[#1e1e1e]">
-        <div className="h-9 bg-vscode-sidebar border-b border-vscode-border flex items-center px-4 justify-between shrink-0">
-          <div className="flex items-center text-xs truncate max-w-[70%]">
+        <div className="h-10 bg-vscode-sidebar border-b border-vscode-border flex items-center px-4 justify-between shrink-0">
+          <div className="flex items-center text-[14px] truncate max-w-[70%]">
             {activeFile ? (
               <div className="bg-[#1e1e1e] px-4 py-2 border-t-2 border-vscode-accent flex items-center gap-2">
-                <FileCode size={12} className="text-blue-400" />
+                <FileCode size={14} className="text-blue-400" />
                 <span className="truncate font-medium">{activeFile.split('\\').pop()}</span>
               </div>
-            ) : <span className="text-[#555] italic">Otvori bilo koji fajl iz Explorera</span>}
+            ) : <span className="text-[#555] italic text-[14px]">Otvori bilo koji fajl iz Explorera</span>}
           </div>
           <div className="flex items-center gap-1">
             <button onClick={handleSave} disabled={!activeFile} className="p-1.5 hover:bg-white/10 rounded text-gray-400 hover:text-white disabled:opacity-20">
@@ -308,7 +308,7 @@ function App() {
             theme="vs-dark"
             value={fileContent}
             onChange={setFileContent}
-            options={{ fontSize: 13, minimap: { enabled: true }, automaticLayout: true, scrollBeyondLastLine: false }}
+            options={{ fontSize: 16, minimap: { enabled: true }, automaticLayout: true, scrollBeyondLastLine: false }}
           />
         </div>
 
@@ -320,12 +320,12 @@ function App() {
 
         {/* Output Panel */}
         <div style={{ height: bottomHeight }} className="bg-vscode-sidebar border-t border-vscode-border flex flex-col shrink-0 min-h-[40px]">
-          <div className="flex px-4 bg-[#2c2c2c] border-b border-vscode-border items-center justify-between shrink-0 h-7">
-            <div className="text-[10px] font-bold border-b-2 border-vscode-accent flex items-center gap-1 h-full uppercase">
-              <TerminalIcon size={12} /> Output Console
+          <div className="flex px-4 bg-[#2c2c2c] border-b border-vscode-border items-center justify-between shrink-0 h-8">
+            <div className="text-[12px] font-bold border-b-2 border-vscode-accent flex items-center gap-1 h-full uppercase">
+              <TerminalIcon size={14} /> Output Console
             </div>
           </div>
-          <div className="flex-grow overflow-y-auto p-3 font-mono text-[10px] space-y-1 bg-[#1e1e1e] custom-scrollbar">
+          <div className="flex-grow overflow-y-auto p-4 font-mono text-[12px] space-y-1 bg-[#1e1e1e] custom-scrollbar">
             {logs.map(log => (
               <div key={log.id} className="flex gap-3">
                 <span className="text-gray-600 shrink-0">[{log.time}]</span>
@@ -355,17 +355,17 @@ function App() {
               className="bg-vscode-sidebar border-l border-vscode-border flex flex-col overflow-hidden bg-[#252526]"
             >
               <div className="p-4 flex items-center justify-between border-b border-white/5 bg-[#2d2d2d] shrink-0">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-vscode-accent flex items-center gap-2">
-                  <Shield size={14} /> AI Programming Agent
+                <span className="text-[12px] font-bold uppercase tracking-widest text-vscode-accent flex items-center gap-2">
+                  <Shield size={16} /> AI Programming Agent
                 </span>
-                <X size={14} className="cursor-pointer hover:text-white text-gray-500" onClick={() => setRightSidebarVisible(false)} />
+                <X size={16} className="cursor-pointer hover:text-white text-gray-500" onClick={() => setRightSidebarVisible(false)} />
               </div>
 
               <div className="p-4 space-y-6 flex-grow overflow-y-auto custom-scrollbar">
                 <div className="space-y-1">
-                  <label className="text-[9px] text-gray-400 font-bold uppercase">LLM Brain Selection</label>
+                  <label className="text-[11px] text-gray-400 font-bold uppercase">LLM Brain Selection</label>
                   <select
-                    className="w-full bg-[#1e1e1e] border border-white/10 rounded px-2 py-2 text-xs focus:outline-none focus:border-vscode-accent cursor-pointer"
+                    className="w-full bg-[#1e1e1e] border border-white/10 rounded px-2 py-2 text-[14px] focus:outline-none focus:border-vscode-accent cursor-pointer"
                     value={status?.model || ''}
                     onChange={(e) => handleModelChange(e.target.value)}
                   >
@@ -374,9 +374,9 @@ function App() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[9px] text-gray-400 font-bold uppercase">Task Instructions</label>
+                  <label className="text-[11px] text-gray-400 font-bold uppercase">Task Instructions</label>
                   <textarea
-                    className="w-full bg-[#1e1e1e] border border-white/10 rounded p-3 text-xs h-40 focus:outline-none focus:border-vscode-accent resize-none placeholder:text-[#444]"
+                    className="w-full bg-[#1e1e1e] border border-white/10 rounded p-3 text-[14px] h-44 focus:outline-none focus:border-vscode-accent resize-none placeholder:text-[#444]"
                     value={aiPrompt}
                     onChange={(e) => setAiPrompt(e.target.value)}
                     placeholder="Opišite šta agent treba da uradi..."
@@ -384,31 +384,31 @@ function App() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[9px] text-gray-400 font-bold uppercase">Target Script / Path</label>
+                  <label className="text-[11px] text-gray-400 font-bold uppercase">Target Script / Path</label>
                   <input
                     type="text"
-                    className="w-full bg-[#1e1e1e] border border-white/10 rounded px-3 py-2 text-xs focus:outline-none focus:border-vscode-accent"
+                    className="w-full bg-[#1e1e1e] border border-white/10 rounded px-3 py-2 text-[14px] focus:outline-none focus:border-vscode-accent"
                     value={newFileName}
                     onChange={(e) => setNewFileName(e.target.value)}
                   />
                 </div>
 
                 <button
-                  className="w-full bg-vscode-accent hover:bg-blue-600 text-white py-3 rounded-md font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 disabled:opacity-50"
+                  className="w-full bg-vscode-accent hover:bg-blue-600 text-white py-4 rounded-md font-bold text-[14px] flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 disabled:opacity-50"
                   onClick={handleGenerate}
                   disabled={loading || !aiPrompt}
                 >
-                  {loading ? <Cpu className="animate-spin" size={16} /> : <Zap size={16} fill="white" />}
+                  {loading ? <Cpu className="animate-spin" size={18} /> : <Zap size={18} fill="white" />}
                   {loading ? 'AGENT RAZMIŠLJA...' : 'IZVRŠI ZADATAK'}
                 </button>
 
                 <div className="p-3 bg-black/30 rounded border border-white/5 space-y-2 mt-auto">
-                  <div className="flex justify-between text-[9px] text-gray-500 uppercase">
+                  <div className="flex justify-between text-[11px] text-gray-500 uppercase">
                     <span>Usage Tokens:</span>
                     <span className="text-vscode-accent font-bold">{status?.total_tokens || 0}</span>
                   </div>
-                  <div className="flex items-center gap-1 text-[9px] text-green-500/80 font-bold uppercase tracking-tighter">
-                    <Shield size={10} /> Protected by Security Sentinel
+                  <div className="flex items-center gap-1 text-[11px] text-green-500/80 font-bold uppercase tracking-tighter">
+                    <Shield size={12} /> Protected by Security Sentinel
                   </div>
                 </div>
               </div>
