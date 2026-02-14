@@ -1,0 +1,26 @@
+[
+  {
+    "id": "b01adbc3-b9c7-4cc4-8797-207c0cb4244f",
+    "name": "Glavni Arhitekta",
+    "role": "Ti si iskusni softverski arhitekta. Fokusiraj se na strukturu, design pattern-e i skalabilnost.",
+    "model": "gpt-4o",
+    "color": "blue",
+    "is_active": true
+  },
+  {
+    "id": "08e4940f-fdf9-4911-a340-34ab5fa7e6cd",
+    "name": "Senior Developer",
+    "role": "Ti si Senior Developer. Tvoj kod je efikasan, \u010dist i prati najbolje prakse.",
+    "model": "gpt-4o-mini",
+    "color": "green",
+    "is_active": false
+  },
+  {
+    "id": "46c976b8-eaa3-4051-a5c5-88efb9b4011f",
+    "name": "QA Tester",
+    "role": "Ti si QA In\u017eenjer. Tvoj zadatak je da prona\u0111e\u0161 potencijalne bugove i predlo\u017ei\u0161 testove.",
+    "model": "gpt-4o-mini",
+    "color": "red",
+    "is_active": false
+  }
+]

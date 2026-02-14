@@ -1,43 +1,35 @@
 @import "tailwindcss";
 
 :root {
-  --color-vscode-bg: #121212;
-  --color-vscode-editor: #1e1e1e;
-  --color-vscode-sidebar: #252526;
-  --color-vscode-activity: #333333;
-  --color-vscode-text: #cccccc;
-  --color-vscode-border: #444444;
-  --color-vscode-accent: #3b82f6;
-  --color-vscode-input: #1e1e1e;
-  --color-vscode-sidebar-header: #2d2d2d;
-  color-scheme: dark;
-}
+  /* MODERN NAVY & PEARL THEME */
+  --color-vscode-bg: #0a192f;
+  /* Deepest Navy */
+  --color-vscode-sidebar: #112240;
+  /* Navy Sidebar */
+  --color-vscode-editor: #0a192f;
+  /* Deepest Navy Editor */
+  --color-vscode-activity: #020c1b;
+  /* Darkest Navy */
+  --color-vscode-text: #ffffff;
+  /* Pure White Text */
+  --color-vscode-border: #233554;
+  /* Lighter Navy Border */
+  --color-vscode-accent: #64ffda;
+  /* Cyan/Teal Mint (Secondary) */
+  --color-vscode-input: #112240;
+  /* Navy Input */
+  --color-vscode-sidebar-header: #0d1b2e;
 
-.theme-navy {
-  --color-vscode-bg: #001b3a;
-  --color-vscode-editor: #002147;
-  --color-vscode-sidebar: #003366;
-  --color-vscode-activity: #001f3f;
-  --color-vscode-text: #e0e0e0;
-  --color-vscode-border: #004080;
-  --color-vscode-accent: #00aaff;
-  --color-vscode-input: #001529;
-  --color-vscode-sidebar-header: #002d5a;
-  color-scheme: dark;
-}
+  /* Specijalne boje za Chat i Akcije */
+  --color-chat-module-bg: #cfd8dc;
+  /* Darker Silver Pearl */
+  --color-chat-text: #0a192f;
+  /* Navy Text */
+  --color-action-btn: #006d77;
+  /* Petroleum (Deep Teal) */
+  --color-important-text: #8b0000;
+  /* Dark Red for Important Info */
 
-.theme-tokyo {
-  --color-vscode-bg: #2d313d;
-  /* Prava Tamno Biserna (30% svetlija) */
-  --color-vscode-editor: #2d313d;
-  --color-vscode-sidebar: #24283b;
-  --color-vscode-activity: #1a1b26;
-  --color-vscode-text: #89b4fa;
-  /* Jaka Navy / Teget za čitljivost */
-  --color-vscode-border: #414868;
-  --color-vscode-accent: #7aa2f7;
-  --color-vscode-input: #24283b;
-  --color-vscode-sidebar-header: #1a1b26;
   color-scheme: dark;
 }
 

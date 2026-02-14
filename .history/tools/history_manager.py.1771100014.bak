@@ -1,0 +1,98 @@
+import os
+import shutil
+import time
+from datetime import datetime
+from pathlib import Path
+from typing import List, Dict, Optional
+
+class HistoryManager:
+    def __init__(self, base_dir: str):
+        self.base_dir = Path(base_dir)
+        self.history_dir = self.base_dir / ".history"
+        self._ensure_history_dir()
+
+    def _ensure_history_dir(self):
+        if not self.history_dir.exists():
+            self.history_dir.mkdir(parents=True, exist_ok=True)
+
+    def create_backup(self, file_path: str) -> Optional[str]:
+        """
+        Kreira backup fajla pre izmene.
+        Vraća putanju do backup fajla ili None ako fajl ne postoji.
+        """
+        full_path = self.base_dir / file_path
+        if not full_path.exists():
+            return None
+
+        timestamp = int(time.time())
+        # Kreiramo strukturu foldera unutar .history da pratimo originalnu strukturu
+        rel_path = full_path.relative_to(self.base_dir)
+        backup_subdir = self.history_dir / rel_path.parent
+        backup_subdir.mkdir(parents=True, exist_ok=True)
+
+        backup_filename = f"{rel_path.name}.{timestamp}.bak"
+        backup_path = backup_subdir / backup_filename
+
+        try:
+            shutil.copy2(full_path, backup_path)
+            print(f"[History] Backup kreiran: {backup_path}")
+            return str(backup_path)
+        except Exception as e:
+            print(f"[History] Greška pri kreiranju backup-a: {str(e)}")
+            return None
+
+    def get_history(self, file_path: str) -> List[Dict[str, str]]:
+        """Vraća listu dostupnih verzija za dati fajl."""
+        rel_path = Path(file_path)
+        backup_subdir = self.history_dir / rel_path.parent
+        if not backup_subdir.exists():
+            return []
+
+        backups = []
+        prefix = rel_path.name + "."
+        
+        for backup_file in backup_subdir.glob(f"{prefix}*.bak"):
+            try:
+                # Format: filename.timestamp.bak
+                parts = backup_file.name.split('.')
+                # Pretpostavljamo da je timestamp pretposlednji element
+                timestamp = int(parts[-2])
+                date_str = datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+                
+                backups.append({
+                    "version_id": str(timestamp),
+                    "timestamp": timestamp,
+                    "date": date_str,
+                    "path": str(backup_file)
+                })
+            except:
+                continue
+                
+        # Sortiraj od najnovijeg ka najstarijem
+        return sorted(backups, key=lambda x: x['timestamp'], reverse=True)
+
+    def restore_version(self, file_path: str, version_id: str) -> bool:
+        """Vraća fajl na određenu verziju."""
+        rel_path = Path(file_path)
+        backup_subdir = self.history_dir / rel_path.parent
+        
+        # Rekonstruišemo ime backup fajla
+        backup_filename = f"{rel_path.name}.{version_id}.bak"
+        backup_path = backup_subdir / backup_filename
+        
+        target_path = self.base_dir / file_path
+
+        if not backup_path.exists():
+            print(f"[History] Backup verzija {version_id} ne postoji.")
+            return False
+
+        try:
+            # Pre restore-a, napravimo backup trenutnog stanja (za svaki slučaj)
+            self.create_backup(file_path)
+            
+            shutil.copy2(backup_path, target_path)
+            print(f"[History] Fajl {file_path} vraćen na verziju {version_id}")
+            return True
+        except Exception as e:
+            print(f"[History] Greška pri vraćanju verzije: {str(e)}")
+            return False
