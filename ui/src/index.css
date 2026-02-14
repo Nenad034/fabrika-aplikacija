@@ -1,14 +1,49 @@
 @import "tailwindcss";
 
 :root {
+  --color-vscode-bg: #121212;
+  --color-vscode-editor: #1e1e1e;
+  --color-vscode-sidebar: #252526;
+  --color-vscode-activity: #333333;
+  --color-vscode-text: #cccccc;
+  --color-vscode-border: #444444;
+  --color-vscode-accent: #3b82f6;
+  --color-vscode-input: #1e1e1e;
+  --color-vscode-sidebar-header: #2d2d2d;
   color-scheme: dark;
+}
+
+.theme-navy {
+  --color-vscode-bg: #001b3a;
+  --color-vscode-editor: #002147;
+  --color-vscode-sidebar: #003366;
+  --color-vscode-activity: #001f3f;
+  --color-vscode-text: #e0e0e0;
+  --color-vscode-border: #004080;
+  --color-vscode-accent: #00aaff;
+  --color-vscode-input: #001529;
+  --color-vscode-sidebar-header: #002d5a;
+  color-scheme: dark;
+}
+
+.theme-light {
+  --color-vscode-bg: #ffffff;
+  --color-vscode-editor: #fcfcfc;
+  --color-vscode-sidebar: #f3f3f3;
+  --color-vscode-activity: #2c2c2c;
+  --color-vscode-text: #333333;
+  --color-vscode-border: #e0e0e0;
+  --color-vscode-accent: #005cc5;
+  --color-vscode-input: #ffffff;
+  --color-vscode-sidebar-header: #e8e8e8;
+  color-scheme: light;
 }
 
 body {
   margin: 0;
   overflow: hidden;
-  background-color: #121212;
-  color: #cccccc;
+  background-color: var(--color-vscode-bg);
+  color: var(--color-vscode-text);
   font-size: 14px;
 }
 
@@ -31,11 +66,13 @@ body {
 
 /* VS Code Specific Utility Classes (If Tailwind v4 needs manual theme extensions) */
 @theme {
-  --color-vscode-bg: #121212;
-  --color-vscode-editor: #1e1e1e;
-  --color-vscode-sidebar: #333333;
-  --color-vscode-activity: #2c2c2c;
-  --color-vscode-text: #cccccc;
-  --color-vscode-border: #444444;
-  --color-vscode-accent: #3b82f6;
+  --color-vscode-bg: var(--color-vscode-bg);
+  --color-vscode-editor: var(--color-vscode-editor);
+  --color-vscode-sidebar: var(--color-vscode-sidebar);
+  --color-vscode-activity: var(--color-vscode-activity);
+  --color-vscode-text: var(--color-vscode-text);
+  --color-vscode-border: var(--color-vscode-border);
+  --color-vscode-accent: var(--color-vscode-accent);
+  --color-vscode-input: var(--color-vscode-input);
+  --color-vscode-sidebar-header: var(--color-vscode-sidebar-header);
 }

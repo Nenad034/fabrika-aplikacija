@@ -50,12 +50,25 @@ function App() {
   const startResizingRight = () => setIsResizingRight(true);
   const startResizingBottom = () => setIsResizingBottom(true);
 
+  const [theme, setTheme] = useState('dark'); // 'dark', 'navy', 'light'
+
   useEffect(() => {
     fetchStatus();
     fetchModels();
     const interval = setInterval(fetchStatus, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  const toggleTheme = () => {
+    const themes = ['dark', 'navy', 'light'];
+    const next = themes[(themes.indexOf(theme) + 1) % themes.length];
+    setTheme(next);
+  };
+
+  const getMonacoTheme = () => {
+    if (theme === 'light') return 'light';
+    return 'vs-dark';
+  };
 
   useEffect(() => {
     const handleMouseMove = (e) => {
@@ -210,9 +223,17 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen bg-vscode-bg text-vscode-text font-sans overflow-hidden">
+    <div className={`flex h-screen bg-vscode-bg text-vscode-text font-sans overflow-hidden theme-${theme}`}>
       {/* Activity Bar */}
       <div className="w-12 bg-vscode-activity flex flex-col items-center py-4 space-y-4 border-r border-vscode-border z-20 shrink-0">
+        <div
+          className="p-2 cursor-pointer text-vscode-accent hover:text-white transition-transform active:scale-95"
+          onClick={toggleTheme}
+          title="Promeni temu (Dark / Navy / Light)"
+        >
+          {theme === 'dark' ? <Activity size={24} /> : theme === 'navy' ? <Shield size={24} /> : <Zap size={24} />}
+        </div>
+        <div className="w-8 h-[1px] bg-white/10" />
         <div
           className={`p-2 cursor-pointer transition-colors ${leftSidebarVisible ? 'text-white' : 'text-gray-500 hover:text-white'}`}
           onClick={() => setLeftSidebarVisible(!leftSidebarVisible)}
@@ -305,7 +326,7 @@ function App() {
           <Editor
             height="100%"
             defaultLanguage="python"
-            theme="vs-dark"
+            theme={getMonacoTheme()}
             value={fileContent}
             onChange={setFileContent}
             options={{ fontSize: 16, minimap: { enabled: true }, automaticLayout: true, scrollBeyondLastLine: false }}
@@ -403,11 +424,11 @@ function App() {
                 </button>
 
                 <div className="p-3 bg-black/30 rounded border border-white/5 space-y-2 mt-auto">
-                  <div className="flex justify-between text-[11px] text-gray-500 uppercase">
+                  <div className="flex justify-between text-[12px] text-gray-500 uppercase">
                     <span>Usage Tokens:</span>
                     <span className="text-vscode-accent font-bold">{status?.total_tokens || 0}</span>
                   </div>
-                  <div className="flex items-center gap-1 text-[11px] text-green-500/80 font-bold uppercase tracking-tighter">
+                  <div className="flex items-center gap-1 text-[12px] text-green-500/80 font-bold uppercase tracking-tighter">
                     <Shield size={12} /> Protected by Security Sentinel
                   </div>
                 </div>
