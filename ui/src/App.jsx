@@ -39,7 +39,7 @@ function App() {
 
   // Resizing state
   const [leftWidth, setLeftWidth] = useState(260);
-  const [rightWidth, setRightWidth] = useState(320);
+  const [rightWidth, setRightWidth] = useState(512);
   const [bottomHeight, setBottomHeight] = useState(160);
 
   const [isResizingLeft, setIsResizingLeft] = useState(false);
@@ -51,6 +51,19 @@ function App() {
   const startResizingBottom = () => setIsResizingBottom(true);
 
   const [theme, setTheme] = useState('dark'); // 'dark', 'navy', 'tokyo'
+  const [messages, setMessages] = useState([
+    { id: 1, text: "Dobrodošli! Ja sam vaš AI Agent. Kako vam mogu pomoći danas?", type: 'ai' }
+  ]);
+
+  const chatEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   useEffect(() => {
     fetchStatus();
@@ -209,16 +222,25 @@ function App() {
       const res = await axios.post(`${API_BASE}/generate`, { prompt: aiPrompt, filename: newFileName });
       if (res.data.success) {
         addLog(`✓ Uspešno obavljeno!`, 'success');
+        setMessages(prev => [...prev, { id: Date.now(), text: `Zadatak je uspešno izvršen u fajlu: ${newFileName}. Kôd je generisan i osiguran.`, type: 'ai' }]);
         fetchStatus();
         setAiPrompt('');
       } else {
         addLog(`✗ Neuspeh AI Agenta`, 'error');
+        setMessages(prev => [...prev, { id: Date.now(), text: "Nažalost, došlo je do greške pri izvršavanju zadatka. Proverite logove.", type: 'ai' }]);
       }
     } catch (err) {
       addLog(`Greška API servisa`, 'error');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSendMessage = () => {
+    if (!aiPrompt.trim()) return;
+    const userMsg = { id: Date.now(), text: aiPrompt, type: 'user' };
+    setMessages(prev => [...prev, userMsg]);
+    handleGenerate();
   };
 
   return (
@@ -381,48 +403,66 @@ function App() {
                 <X size={16} className="cursor-pointer hover:text-white text-gray-500" onClick={() => setRightSidebarVisible(false)} />
               </div>
 
-              <div className="p-4 space-y-6 flex-grow overflow-y-auto custom-scrollbar">
-                <div className="space-y-1">
-                  <label className="text-[11px] text-gray-400 font-bold uppercase">LLM Brain Selection</label>
-                  <select
-                    className="w-full bg-[#1e1e1e] border border-white/10 rounded px-2 py-2 text-[14px] focus:outline-none focus:border-vscode-accent cursor-pointer"
-                    value={status?.model || ''}
-                    onChange={(e) => handleModelChange(e.target.value)}
-                  >
-                    {availableModels.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                  </select>
+              <div className="p-4 flex-grow overflow-y-auto custom-scrollbar flex flex-col space-y-4">
+                {/* Chat History View */}
+                <div className="flex-grow space-y-3 mb-4">
+                  {messages.map(msg => (
+                    <div key={msg.id} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[85%] p-3 rounded-xl text-[13px] leading-relaxed shadow-sm ${msg.type === 'user'
+                        ? 'bg-vscode-accent text-white rounded-tr-none'
+                        : 'bg-black/20 border border-white/5 text-vscode-text rounded-tl-none'
+                        }`}>
+                        {msg.text}
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={chatEndRef} />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-[11px] text-gray-400 font-bold uppercase">Task Instructions</label>
-                  <textarea
-                    className="w-full bg-[#1e1e1e] border border-white/10 rounded p-3 text-[14px] h-44 focus:outline-none focus:border-vscode-accent resize-none placeholder:text-[#444]"
-                    value={aiPrompt}
-                    onChange={(e) => setAiPrompt(e.target.value)}
-                    placeholder="Opišite šta agent treba da uradi..."
-                  />
+                <div className="space-y-4 mt-auto border-t border-white/5 pt-4">
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-gray-400 font-bold uppercase">LLM Brain Selection</label>
+                    <select
+                      className="w-full bg-vscode-input border border-white/10 rounded px-2 py-2 text-[14px] focus:outline-none focus:border-vscode-accent cursor-pointer text-vscode-text"
+                      value={status?.model || ''}
+                      onChange={(e) => handleModelChange(e.target.value)}
+                    >
+                      {availableModels.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] text-gray-400 font-bold uppercase">Poruka za Agenta</label>
+                    <textarea
+                      className="w-full bg-vscode-input border border-white/10 rounded p-3 text-[14px] h-32 focus:outline-none focus:border-vscode-accent resize-none placeholder:text-gray-600 text-vscode-text"
+                      value={aiPrompt}
+                      onChange={(e) => setAiPrompt(e.target.value)}
+                      placeholder="Pitajte agenta bilo šta..."
+                      onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <div className="flex-grow space-y-1">
+                      <label className="text-[11px] text-gray-400 font-bold uppercase shrink-0">Ciljni Fajl</label>
+                      <input
+                        type="text"
+                        className="w-full bg-vscode-input border border-white/10 rounded px-3 py-2 text-[14px] focus:outline-none focus:border-vscode-accent text-vscode-text"
+                        value={newFileName}
+                        onChange={(e) => setNewFileName(e.target.value)}
+                      />
+                    </div>
+                    <button
+                      className="mt-6 bg-vscode-accent hover:bg-blue-600 text-white p-3 rounded-md font-bold shadow-lg transition-all active:scale-95 disabled:opacity-50 shrink-0"
+                      onClick={handleSendMessage}
+                      disabled={loading || !aiPrompt}
+                    >
+                      {loading ? <Cpu className="animate-spin" size={20} /> : <Zap size={20} fill="white" />}
+                    </button>
+                  </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-[11px] text-gray-400 font-bold uppercase">Target Script / Path</label>
-                  <input
-                    type="text"
-                    className="w-full bg-[#1e1e1e] border border-white/10 rounded px-3 py-2 text-[14px] focus:outline-none focus:border-vscode-accent"
-                    value={newFileName}
-                    onChange={(e) => setNewFileName(e.target.value)}
-                  />
-                </div>
-
-                <button
-                  className="w-full bg-vscode-accent hover:bg-blue-600 text-white py-4 rounded-md font-bold text-[14px] flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 disabled:opacity-50"
-                  onClick={handleGenerate}
-                  disabled={loading || !aiPrompt}
-                >
-                  {loading ? <Cpu className="animate-spin" size={18} /> : <Zap size={18} fill="white" />}
-                  {loading ? 'AGENT RAZMIŠLJA...' : 'IZVRŠI ZADATAK'}
-                </button>
-
-                <div className="p-3 bg-black/30 rounded border border-white/5 space-y-2 mt-auto">
+                <div className="p-3 bg-black/30 rounded border border-white/5 space-y-2">
                   <div className="flex justify-between text-[12px] text-gray-500 uppercase">
                     <span>Usage Tokens:</span>
                     <span className="text-vscode-accent font-bold">{status?.total_tokens || 0}</span>
