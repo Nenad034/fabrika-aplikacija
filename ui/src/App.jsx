@@ -60,6 +60,25 @@ function App() {
   const [attachments, setAttachments] = useState([]);
   const fileInputRef = useRef(null);
 
+  const handleEditorWillMount = (monaco) => {
+    monaco.editor.defineTheme('tokyo-pearl', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { token: '', foreground: '89b4fa', background: '2d313d' },
+        { token: 'comment', foreground: '565f89', fontStyle: 'italic' },
+        { token: 'keyword', foreground: 'bb9af7' },
+        { token: 'string', foreground: '9ece6a' },
+      ],
+      colors: {
+        'editor.background': '#2d313d', // Tamno Biserna
+        'editor.foreground': '#89b4fa', // Teget/Plava
+        'editorLineNumber.foreground': '#565f89',
+        'editor.selectionBackground': '#3d4455',
+      }
+    });
+  };
+
   const chatEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -84,7 +103,8 @@ function App() {
   };
 
   const getMonacoTheme = () => {
-    return 'vs-dark'; // Tokyo Night works best with dark editor base
+    if (theme === 'tokyo') return 'tokyo-pearl';
+    return 'vs-dark'; // Teget/Plava
   };
 
   useEffect(() => {
@@ -187,6 +207,22 @@ function App() {
     }
   };
 
+  const handlePickTargetFile = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/pick-file`);
+      if (res.data.success && res.data.path) {
+        let path = res.data.path;
+        if (currentPath && path.startsWith(currentPath)) {
+          path = path.replace(currentPath, '').replace(/^[\\\/]+/, '');
+        }
+        setNewFileName(path);
+        addLog(`Ciljni fajl: ${path.split(/[\\\/]/).pop()}`, 'success');
+      }
+    } catch (err) {
+      addLog("Greška pri izboru ciljnog fajla", "error");
+    }
+  };
+
   const addLog = (msg, type = 'info') => {
     setLogs(prev => [...prev.slice(-49), { id: Date.now(), msg, type, time: new Date().toLocaleTimeString() }]);
   };
@@ -234,7 +270,7 @@ function App() {
         addLog(`✓ Uspešno obavljeno!`, 'success');
         setMessages(prev => [...prev, {
           id: Date.now(),
-          text: `Zadatak završen u: ${newFileName}. Analizirao sam i priložene podatke.`,
+          text: `Zadatak završen. Izmene su u: ${newFileName}`,
           type: 'ai'
         }]);
         fetchStatus();
@@ -242,7 +278,7 @@ function App() {
         setAttachments([]);
       } else {
         addLog(`✗ Neuspeh AI Agenta`, 'error');
-        setMessages(prev => [...prev, { id: Date.now(), text: "Greška pri radu sa prilozima.", type: 'ai' }]);
+        setMessages(prev => [...prev, { id: Date.now(), text: "Nažalost, došlo je do greške.", type: 'ai' }]);
       }
     } catch (err) {
       addLog(`Greška API servisa`, 'error');
@@ -416,6 +452,7 @@ function App() {
             height="100%"
             defaultLanguage="python"
             theme={getMonacoTheme()}
+            beforeMount={handleEditorWillMount}
             value={fileContent}
             onChange={setFileContent}
             options={{ fontSize: 16, minimap: { enabled: true }, automaticLayout: true, scrollBeyondLastLine: false }}
@@ -553,27 +590,45 @@ function App() {
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="space-y-4">
                     <div className="flex-grow space-y-1">
-                      <label className="text-[11px] text-gray-400 font-bold uppercase shrink-0">Ciljni Fajl</label>
-                      <input
-                        type="text"
-                        className="w-full bg-vscode-input border border-white/10 rounded px-3 py-2 text-[14px] focus:outline-none focus:border-vscode-accent text-vscode-text"
-                        value={newFileName}
-                        onChange={(e) => setNewFileName(e.target.value)}
-                      />
+                      <label className="text-[11px] text-gray-400 font-bold uppercase flex justify-between">
+                        <span>Ciljna Lokacija (Fajl)</span>
+                        <span className="text-[9px] lowercase font-normal italic opacity-60">Gde agent snima kôd</span>
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          className="flex-grow bg-vscode-input border border-white/10 rounded px-3 py-2 text-[14px] focus:outline-none focus:border-vscode-accent text-vscode-text"
+                          value={newFileName}
+                          onChange={(e) => setNewFileName(e.target.value)}
+                        />
+                        <button
+                          onClick={handlePickTargetFile}
+                          className="px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-gray-400 hover:text-vscode-accent transition-colors"
+                          title="Izaberi ciljni fajl iz projekta"
+                        >
+                          <Search size={16} />
+                        </button>
+                      </div>
                     </div>
+
                     <button
-                      className="mt-6 bg-vscode-accent hover:bg-blue-600 text-white p-3 rounded-md font-bold shadow-lg transition-all active:scale-95 disabled:opacity-50 shrink-0"
+                      className="w-full bg-vscode-accent hover:bg-blue-600 text-white py-3 rounded-md font-bold shadow-lg transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
                       onClick={handleSendMessage}
-                      disabled={loading || !aiPrompt}
+                      disabled={loading || (!aiPrompt && attachments.length === 0)}
                     >
                       {loading ? <Cpu className="animate-spin" size={20} /> : <Zap size={20} fill="white" />}
+                      {loading ? 'AGENT RADI...' : 'POŠALJI ZADATAK'}
                     </button>
                   </div>
                 </div>
 
                 <div className="p-3 bg-black/30 rounded border border-white/5 space-y-2">
+                  <div className="flex justify-between text-[11px] text-gray-500 uppercase">
+                    <span>Projekat:</span>
+                    <span className="text-vscode-text truncate max-w-[150px]">{currentPath.split(/[\\\/]/).pop()}</span>
+                  </div>
                   <div className="flex justify-between text-[12px] text-gray-500 uppercase">
                     <span>Usage Tokens:</span>
                     <span className="text-vscode-accent font-bold">{status?.total_tokens || 0}</span>

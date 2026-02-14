@@ -27,17 +27,17 @@
 }
 
 .theme-tokyo {
-  --color-vscode-bg: #1d1f2b;
-  /* Osvetljena Tamno Biserna */
-  --color-vscode-editor: #1d1f2b;
-  --color-vscode-sidebar: #151720;
-  --color-vscode-activity: #0e1016;
-  --color-vscode-text: #5e8bd8;
-  /* Svetlija Teget za čitljivost */
-  --color-vscode-border: #2a2e3f;
+  --color-vscode-bg: #2d313d;
+  /* Prava Tamno Biserna (30% svetlija) */
+  --color-vscode-editor: #2d313d;
+  --color-vscode-sidebar: #24283b;
+  --color-vscode-activity: #1a1b26;
+  --color-vscode-text: #89b4fa;
+  /* Jaka Navy / Teget za čitljivost */
+  --color-vscode-border: #414868;
   --color-vscode-accent: #7aa2f7;
-  --color-vscode-input: #1d1f2b;
-  --color-vscode-sidebar-header: #0e1016;
+  --color-vscode-input: #24283b;
+  --color-vscode-sidebar-header: #1a1b26;
   color-scheme: dark;
 }
 
