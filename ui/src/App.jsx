@@ -50,7 +50,7 @@ function App() {
   const startResizingRight = () => setIsResizingRight(true);
   const startResizingBottom = () => setIsResizingBottom(true);
 
-  const [theme, setTheme] = useState('dark'); // 'dark', 'navy', 'light'
+  const [theme, setTheme] = useState('dark'); // 'dark', 'navy', 'tokyo'
 
   useEffect(() => {
     fetchStatus();
@@ -60,14 +60,13 @@ function App() {
   }, []);
 
   const toggleTheme = () => {
-    const themes = ['dark', 'navy', 'light'];
+    const themes = ['dark', 'navy', 'tokyo'];
     const next = themes[(themes.indexOf(theme) + 1) % themes.length];
     setTheme(next);
   };
 
   const getMonacoTheme = () => {
-    if (theme === 'light') return 'light';
-    return 'vs-dark';
+    return 'vs-dark'; // Tokyo Night works best with dark editor base
   };
 
   useEffect(() => {
@@ -229,9 +228,9 @@ function App() {
         <div
           className="p-2 cursor-pointer text-vscode-accent hover:text-white transition-transform active:scale-95"
           onClick={toggleTheme}
-          title="Promeni temu (Dark / Navy / Light)"
+          title="Promeni temu (Dark / Navy / Tokyo Night)"
         >
-          {theme === 'dark' ? <Activity size={24} /> : theme === 'navy' ? <Shield size={24} /> : <Zap size={24} />}
+          {theme === 'dark' ? <Activity size={24} /> : theme === 'navy' ? <Shield size={24} /> : <Zap size={24} className="text-purple-400" />}
         </div>
         <div className="w-8 h-[1px] bg-white/10" />
         <div

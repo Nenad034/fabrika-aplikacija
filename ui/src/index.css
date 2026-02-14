@@ -26,17 +26,17 @@
   color-scheme: dark;
 }
 
-.theme-light {
-  --color-vscode-bg: #ffffff;
-  --color-vscode-editor: #fcfcfc;
-  --color-vscode-sidebar: #f3f3f3;
-  --color-vscode-activity: #2c2c2c;
-  --color-vscode-text: #333333;
-  --color-vscode-border: #e0e0e0;
-  --color-vscode-accent: #005cc5;
-  --color-vscode-input: #ffffff;
-  --color-vscode-sidebar-header: #e8e8e8;
-  color-scheme: light;
+.theme-tokyo {
+  --color-vscode-bg: #1a1b26;
+  --color-vscode-editor: #1a1b26;
+  --color-vscode-sidebar: #16161e;
+  --color-vscode-activity: #16161e;
+  --color-vscode-text: #a9b1d6;
+  --color-vscode-border: #414868;
+  --color-vscode-accent: #7aa2f7;
+  --color-vscode-input: #24283b;
+  --color-vscode-sidebar-header: #1f2335;
+  color-scheme: dark;
 }
 
 body {
