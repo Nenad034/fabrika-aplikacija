@@ -10,7 +10,7 @@ genai.configure(api_key=key)
 print(f"Testiranje ključa: {key[:10]}...")
 
 try:
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-3-flash-preview')
     response = model.generate_content("Zdravo, test.")
     print("✓ Uspeh sa google-generativeai!")
     print(f"Odgovor: {response.text}")

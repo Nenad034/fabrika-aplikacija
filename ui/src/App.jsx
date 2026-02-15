@@ -1829,7 +1829,7 @@ function App() {
                     {/* Model Selector - Bottom */}
                     <div className="flex items-center gap-1 group/model relative ml-2 border-l border-white/10 pl-3">
                       <select
-                        value={status?.model || 'gemini/gemini-1.5-flash'}
+                        value={status?.model || 'gemini/gemini-3-flash-preview'}
                         onChange={(e) => handleModelChange(e.target.value)}
                         className="bg-transparent text-[13px] font-medium text-white/60 hover:text-white outline-none cursor-pointer appearance-none flex items-center gap-1 pr-4"
                       >
@@ -2078,7 +2078,7 @@ function App() {
                         {/* Model Selector - Sidebar */}
                         <div className="relative group/model">
                           <select
-                            value={status?.model || 'gemini/gemini-1.5-flash'}
+                            value={status?.model || 'gemini/gemini-3-flash-preview'}
                             onChange={(e) => handleModelChange(e.target.value)}
                             className="bg-vscode-activity border border-white/10 rounded px-2 py-0.5 text-[11px] font-bold text-[#64ffda] outline-none cursor-pointer hover:border-vscode-accent transition-colors appearance-none"
                           >

@@ -15,8 +15,8 @@ os.environ['GEMINI_API_KEY'] = key
 litellm.set_verbose = True 
 
 models_to_test = [
-    "gemini/gemini-1.5-flash",
-    "gemini/gemini-1.5-pro",
+    "gemini/gemini-3-flash-preview",
+    "gemini/gemini-3-pro-high-preview",
 ]
 
 for model in models_to_test:
