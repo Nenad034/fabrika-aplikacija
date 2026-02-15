@@ -1089,7 +1089,8 @@ function App() {
               initial={{ width: 0, opacity: 0 }}
               animate={{ width: leftWidth, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
-              className="bg-vscode-sidebar border-r border-vscode-border flex flex-col overflow-hidden relative"
+              transition={{ type: 'tween', duration: isResizingLeft ? 0 : 0.3 }}
+              className="bg-vscode-sidebar border-r border-vscode-border flex flex-col overflow-hidden relative shrink-0"
             >
               <div
                 className="p-4 uppercase text-[14px] font-bold tracking-widest text-[#888] flex justify-between items-center bg-black/10"
@@ -1993,7 +1994,8 @@ function App() {
               initial={{ width: 0, opacity: 0 }}
               animate={{ width: rightWidth, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
-              className="bg-vscode-sidebar border-l border-vscode-border flex flex-col overflow-hidden relative shadow-2xl"
+              transition={{ type: 'tween', duration: isResizingRight ? 0 : 0.3 }}
+              className="bg-vscode-sidebar border-l border-vscode-border flex flex-col overflow-hidden relative shadow-2xl shrink-0"
             >
               <div className="p-4 uppercase text-[14px] font-bold tracking-widest text-[#64ffda] flex justify-between items-center bg-vscode-sidebar-header border-b border-white/5 shadow-sm">
                 <div className="flex items-center gap-2">
