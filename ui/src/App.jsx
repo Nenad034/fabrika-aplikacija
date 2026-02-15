@@ -34,7 +34,8 @@ import {
   ChevronDown,
   Copy, // SR: Added for Copy Chat
   Package, // SR: Added for Package Manager
-  Link // SR: Added for Integration Manager
+  Link, // SR: Added for Integration Manager
+  Database // SR: Added for Supabase
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -59,7 +60,14 @@ function App() {
   const [leftSidebarVisible, setLeftSidebarVisible] = useState(true);
   const [rightSidebarVisible, setRightSidebarVisible] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [availableModels, setAvailableModels] = useState([]);
+  const [availableModels, setAvailableModels] = useState([
+    { id: 'gemini/gemini-3-flash-preview', name: 'Gemini 3 Flash' },
+    { id: 'gemini/gemini-3-pro-high-preview', name: 'Gemini 3 Pro High' },
+    { id: 'qwen/qwen-2.5-72b-instruct', name: 'Qwen 2.5 72B' },
+    { id: 'deepseek/deepseek-chat', name: 'DeepSeek V3' },
+    { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
+    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' }
+  ]);
   const [showConsole, setShowConsole] = useState(true); // SR: Console visible by default
   const [consolePos, setConsolePos] = useState({ x: window.innerWidth - 650, y: 100 });
   const [consoleSize, setConsoleSize] = useState({ width: 600, height: 400 });
@@ -123,7 +131,7 @@ function App() {
 
   // Agents & Chat State
   const [chatMode, setChatMode] = useState('Planning'); // 'Planning' ili 'Act'
-  const [currentModel, setCurrentModel] = useState('gemini/gemini-3-flash-preview'); // SR: Default model odobren od korisnika
+  const [currentModel, setCurrentModel] = useState('gemini/gemini-3-flash-preview'); // SR: Default model vraćen na Gemini 3 Flash prema zahtevu
 
   // SR: Package Manager State
   const [installedPythonPackages, setInstalledPythonPackages] = useState([]);
@@ -150,6 +158,7 @@ function App() {
 
   const [agents, setAgents] = useState([]); // Zadržavamo za backend kompatibilnost
   const [isChatMaximized, setIsChatMaximized] = useState(false); // SR: Za proširenje na +
+  const [chatLayout, setChatLayout] = useState('bottom'); // 'bottom' | 'sidebar'
 
   // Resizing state
   const [leftWidth, setLeftWidth] = useState(260);
@@ -192,22 +201,22 @@ function App() {
   };
 
   const handleEditorWillMount = (monaco) => {
-    // SR: Definicija NAVY Teme za Editor (usklađeno sa novim Teget dizajnom)
-    monaco.editor.defineTheme('navy-theme', {
+    // SR: Definicija PETROL Teme za Editor (usklađeno sa novim Petrolej dizajnom)
+    monaco.editor.defineTheme('petrol-theme', {
       base: 'vs-dark',
       inherit: true,
       rules: [
-        { token: '', foreground: 'ffffff', background: '0a192f' }, // Deepest Navy BG, White Text
-        { token: 'comment', foreground: '8892b0', fontStyle: 'italic' }, // Muted Navy
-        { token: 'keyword', foreground: '64ffda' }, // Cyan Mint
+        { token: '', foreground: 'ffffff', background: '051c24' }, // Petrol BG, White Text
+        { token: 'comment', foreground: '144a56', fontStyle: 'italic' }, // Tealish Comment
+        { token: 'keyword', foreground: '64ffda' }, // Mint Teal
         { token: 'string', foreground: 'a8d0db' }, // Light Blue
-        { token: 'number', foreground: 'f78c6c' }, // Orange accent
+        { token: 'number', foreground: 'ff5252' }, // Red accent
       ],
       colors: {
-        'editor.background': '#0a192f',
+        'editor.background': '#051c24',
         'editor.foreground': '#ffffff',
-        'editorLineNumber.foreground': '#405070',
-        'editor.selectionBackground': '#233554',
+        'editorLineNumber.foreground': '#144a56',
+        'editor.selectionBackground': '#144a5680',
         'editorCursor.foreground': '#64ffda', // Cyan kursor
       }
     });
@@ -347,6 +356,7 @@ function App() {
   const handleModelChange = async (modelId) => {
     try {
       await axios.post(`${API_BASE}/set-model?model_id=${modelId}`);
+      setCurrentModel(modelId); // SR: Sync state locally
       addLog(`Model promenjen: ${modelId}`, 'success');
       fetchStatus();
     } catch (err) {
@@ -385,18 +395,27 @@ function App() {
 
   const handleBrowse = async () => {
     try {
+      addLog("Otvaranje dijaloga za izbor foldera...", "info");
       const res = await axios.get(`${API_BASE}/pick-dir`);
+
       if (res.data.success) {
-        addLog(` Folder izabran: ${res.data.project_dir}`, "success");
+        addLog(`✓ Folder izabran: ${res.data.project_dir}`, "success");
         setCurrentPath(res.data.project_dir);
         if (res.data.files) setFiles(res.data.files);
-        if (res.data.roots) setRoots(res.data.roots); // Update roots
+        if (res.data.roots) setRoots(res.data.roots);
         fetchStatus();
+      } else {
+        // Korisnik je otkazao ili je došlo do greške
+        const message = res.data.message || res.data.detail || "Nepoznata greška";
+        addLog(`⚠ ${message}`, "warning");
       }
     } catch (err) {
-      addLog("Greška pri otvaranju foldera", "error");
+      console.error("Browse error:", err);
+      const errorMsg = err.response?.data?.detail || err.message || "Greška pri otvaranju foldera";
+      addLog(`✗ ${errorMsg}`, "error");
     }
   };
+
 
   const handleAddFolder = async () => {
     try {
@@ -477,6 +496,7 @@ function App() {
       setIsSearching(false);
     }
   };
+
 
   // SR: Package Management Functions
   const fetchInstalledPackages = async () => {
@@ -1044,16 +1064,6 @@ function App() {
           <Package size={24} />
         </div>
         <div
-          className={`p-2 cursor-pointer transition-colors ${leftSidebarMode === 'integration' && leftSidebarVisible ? 'text-white' : 'text-gray-500 hover:text-white'}`}
-          onClick={() => {
-            if (leftSidebarMode === 'integration') setLeftSidebarVisible(!leftSidebarVisible);
-            else { setLeftSidebarMode('integration'); setLeftSidebarVisible(true); fetchGitStatus(); }
-          }}
-          title="Integrations (GitHub, Vercel, Supabase)"
-        >
-          <Link size={24} />
-        </div>
-        <div
           className={`p-2 cursor-pointer transition-colors ${showConsole ? 'text-white bg-white/10 rounded' : 'text-gray-500 hover:text-white'}`}
           onClick={() => setShowConsole(!showConsole)}
           title="Terminal (Console)"
@@ -1082,7 +1092,7 @@ function App() {
               className="bg-vscode-sidebar border-r border-vscode-border flex flex-col overflow-hidden relative"
             >
               <div
-                className="p-4 uppercase text-[12px] font-bold tracking-widest text-[#888] flex justify-between items-center bg-black/10"
+                className="p-4 uppercase text-[14px] font-bold tracking-widest text-[#888] flex justify-between items-center bg-black/10"
                 onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                 onDrop={(e) => {
                   e.preventDefault();
@@ -1106,20 +1116,23 @@ function App() {
 
               {leftSidebarMode === 'explorer' ? (
                 <>
-                  <div className="p-3 border-y border-white/5 space-y-2 bg-[#252526]/50">
+                  <div className="p-3 border-y border-white/5 space-y-2 bg-vscode-input/50">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-gray-500 font-bold uppercase">Radni Folderi</span>
+                      <span className="text-[13px] text-gray-300 font-bold uppercase">Radni Folderi</span>
                       <div className="flex gap-1">
-                        <button onClick={handleBrowse} className="p-1 hover:bg-white/10 rounded text-vscode-accent" title="Promeni glavni folder"><FolderOpen size={14} /></button>
-                        <button onClick={handleAddFolder} className="p-1 hover:bg-white/10 rounded text-vscode-accent" title="Dodaj folder"><Plus size={14} /></button>
+                        <button onClick={() => setChatLayout(prev => prev === 'bottom' ? 'sidebar' : 'bottom')} className={`p-1 hover:bg-white/10 rounded ${chatLayout === 'sidebar' ? 'text-vscode-accent' : 'text-gray-400'}`} title="Prebaci čat u Sidebar">
+                          <Bot size={14} />
+                        </button>
+                        <button onClick={handleBrowse} className="p-1 hover:bg-white/10 rounded text-vscode-accent" title="Izaberi folder projekta"><FolderOpen size={14} /></button>
                       </div>
                     </div>
+
 
                     {roots.length > 0 ? (
                       <div className="flex flex-col gap-1 max-h-[100px] overflow-y-auto custom-scrollbar">
                         {roots.map((root, idx) => (
-                          <div key={idx} className="flex items-center gap-2 text-[11px] text-vscode-text bg-[#1e1e1e] px-2 py-1 rounded border border-white/10 group relative" title={root}>
-                            <FolderOpen size={12} className="text-gray-500 shrink-0" />
+                          <div key={idx} className="flex items-center gap-2 text-[13px] text-vscode-text bg-vscode-sidebar-header px-2 py-1 rounded border border-white/10 group relative" title={root}>
+                            <FolderOpen size={12} className="text-gray-300 shrink-0" />
                             <span className="truncate flex-grow">{root.split(/[\\/]/).pop()}</span>
                             {/* Ne dozvoljavamo uklanjanje primarnog foldera (indeks 0) */}
                             {idx > 0 && (
@@ -1137,7 +1150,7 @@ function App() {
                     ) : (
                       <input
                         type="text"
-                        className="w-full bg-[#1e1e1e] border border-white/10 rounded px-2 py-1 text-[12px] focus:outline-none focus:border-vscode-accent/50 text-vscode-text"
+                        className="w-full bg-vscode-sidebar-header border border-white/10 rounded px-2 py-1 text-[14px] focus:outline-none focus:border-vscode-accent/50 text-vscode-text"
                         value={currentPath}
                         onChange={(e) => setCurrentPath(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSetPath()}
@@ -1146,46 +1159,46 @@ function App() {
                   </div>
 
                   <div className="flex-grow overflow-y-auto custom-scrollbar">
-                    <div className="px-4 py-2 text-[12px] text-gray-500 font-bold uppercase">Fajlovi Projekta</div>
+                    <div className="px-4 py-2 text-[14px] text-gray-300 font-bold uppercase">Fajlovi Projekta</div>
                     {files.length > 0 ? files.map(file => (
                       <div
                         key={file}
-                        className={`flex items-center px-4 py-2 cursor-pointer text-[14px] ${activeFile === file ? 'bg-vscode-accent/20 text-blue-400 border-l-2 border-vscode-accent' : 'hover:bg-white/5 text-gray-400'}`}
+                        className={`flex items-center px-4 py-2 cursor-pointer text-[17px] ${activeFile === file ? 'bg-vscode-accent/20 text-blue-400 border-l-2 border-vscode-accent' : 'hover:bg-white/5 text-gray-200'}`}
                         onClick={() => handleFileClick(file)}
                       >
                         <FileCode size={17} className="mr-2" />
                         <span className="truncate">{file.split('\\').pop()}</span>
                       </div>
-                    )) : <div className="p-4 text-[12px] text-gray-600 italic">Prazan folder</div>}
+                    )) : <div className="p-4 text-[14px] text-gray-600 italic">Prazan folder</div>}
                   </div>
                 </>
               ) : leftSidebarMode === 'agents' ? (
-                <div className="flex flex-col flex-grow overflow-hidden bg-[#1e1e1e]">
+                <div className="flex flex-col flex-grow overflow-hidden bg-vscode-sidebar-header">
                   <div className="p-4 border-b border-white/5 space-y-3">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-[12px] font-bold uppercase text-gray-500">Agenti</h3>
+                      <h3 className="text-[14px] font-bold uppercase text-gray-300">Agenti</h3>
                       <button onClick={() => setIsAddingAgent(!isAddingAgent)} className="text-vscode-accent hover:text-white p-1">
                         <Plus size={16} />
                       </button>
                     </div>
 
                     {isAddingAgent && (
-                      <div className="bg-[#252526] p-3 rounded border border-white/10 space-y-2 animate-in fade-in slide-in-from-top-2">
+                      <div className="bg-vscode-input p-3 rounded border border-white/10 space-y-2 animate-in fade-in slide-in-from-top-2">
                         <input
-                          className="w-full bg-[#3c3c3c] rounded px-2 py-1 text-[12px] text-white focus:outline-none border border-transparent focus:border-vscode-accent"
+                          className="w-full bg-[#3c3c3c] rounded px-2 py-1 text-[14px] text-white focus:outline-none border border-transparent focus:border-vscode-accent"
                           placeholder="Ime agenta (npr. Tester)"
                           value={newAgentName}
                           onChange={e => setNewAgentName(e.target.value)}
                         />
                         <textarea
-                          className="w-full bg-[#3c3c3c] rounded px-2 py-1 text-[12px] text-white focus:outline-none border border-transparent focus:border-vscode-accent h-20 resize-none"
+                          className="w-full bg-[#3c3c3c] rounded px-2 py-1 text-[14px] text-white focus:outline-none border border-transparent focus:border-vscode-accent h-20 resize-none"
                           placeholder="Uloga (System Prompt)..."
                           value={newAgentRole}
                           onChange={e => setNewAgentRole(e.target.value)}
                         />
                         <button
                           onClick={handleCreateAgent}
-                          className="w-full bg-[#0e639c] hover:bg-[#1177bb] text-white text-[11px] py-1 rounded font-bold"
+                          className="w-full bg-[#0e639c] hover:bg-[#1177bb] text-white text-[13px] py-1 rounded font-bold"
                         >
                           Kreiraj Agenta
                         </button>
@@ -1195,11 +1208,11 @@ function App() {
 
                   <div className="flex-grow overflow-y-auto custom-scrollbar p-2 space-y-2">
                     {agents.map(agent => (
-                      <div key={agent.id} className="bg-[#252526] p-3 rounded border border-white/5 hover:border-white/10 transition-colors group">
+                      <div key={agent.id} className="bg-vscode-input p-3 rounded border border-white/5 hover:border-white/10 transition-colors group">
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
                             <div className={`w-2 h-2 rounded-full ${agent.is_active ? 'bg-green-500' : 'bg-gray-600'}`} />
-                            <span className={`font-bold text-[13px] ${agent.is_active ? 'text-white' : 'text-gray-400'}`}>{agent.name}</span>
+                            <span className={`font-bold text-[16px] ${agent.is_active ? 'text-white' : 'text-gray-200'}`}>{agent.name}</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <div className={`w-3 h-3 rounded-full border border-white/20`} style={{ backgroundColor: agent.color }} title="Boja agenta" />
@@ -1212,8 +1225,8 @@ function App() {
                             />
                           </div>
                         </div>
-                        <p className="text-[11px] text-gray-500 line-clamp-2" title={agent.role}>{agent.role}</p>
-                        <div className="mt-2 text-[10px] text-gray-600 font-mono">{agent.model}</div>
+                        <p className="text-[13px] text-gray-300 line-clamp-2" title={agent.role}>{agent.role}</p>
+                        <div className="mt-2 text-[12px] text-gray-600 font-mono">{agent.model}</div>
                       </div>
                     ))}
                   </div>
@@ -1225,11 +1238,11 @@ function App() {
                       type="text"
                       autoFocus
                       placeholder="Pretraži tekst..."
-                      className="w-full bg-vscode-input border border-white/10 rounded px-3 py-2 text-[14px] focus:outline-none focus:border-vscode-accent text-vscode-text"
+                      className="w-full bg-vscode-input border border-white/10 rounded px-3 py-2 text-[17px] focus:outline-none focus:border-vscode-accent text-vscode-text"
                       value={searchQuery}
                       onChange={(e) => handleSearch(e.target.value)}
                     />
-                    <div className="text-[10px] text-gray-500 uppercase font-bold tracking-tight">
+                    <div className="text-[12px] text-gray-300 uppercase font-bold tracking-tight">
                       {isSearching ? 'Tražim...' : `${searchResults.length} rezultata`}
                     </div>
                   </div>
@@ -1241,28 +1254,28 @@ function App() {
                         onClick={() => handleFileClick(res.file)}
                       >
                         <div className="flex justify-between items-center mb-1">
-                          <span className="text-[13px] text-vscode-accent font-medium truncate max-w-[180px]">{res.file.split(/[\\\/]/).pop()}</span>
-                          <span className="text-[10px] text-gray-500">Linija {res.line}</span>
+                          <span className="text-[16px] text-vscode-accent font-medium truncate max-w-[180px]">{res.file.split(/[\\\/]/).pop()}</span>
+                          <span className="text-[12px] text-gray-300">Linija {res.line}</span>
                         </div>
-                        <div className="text-[11px] text-gray-400 truncate font-mono italic">
+                        <div className="text-[13px] text-gray-200 truncate font-mono italic">
                           {res.content}
                         </div>
                       </div>
                     ))}
                     {!isSearching && searchResults.length === 0 && searchQuery.length >= 2 && (
-                      <div className="p-8 text-center text-gray-600 text-[12px] italic">Nema pronađenih rezultata</div>
+                      <div className="p-8 text-center text-gray-600 text-[14px] italic">Nema pronađenih rezultata</div>
                     )}
                   </div>
                 </div>
               ) : leftSidebarMode === 'packages' ? (
-                <div className="flex flex-col flex-grow overflow-hidden bg-[#1e1e1e]">
+                <div className="flex flex-col flex-grow overflow-hidden bg-vscode-sidebar-header">
                   {/* Package Manager Header */}
                   <div className="p-4 border-b border-white/5 space-y-3">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-[12px] font-bold uppercase text-gray-500">Package Manager</h3>
+                      <h3 className="text-[14px] font-bold uppercase text-gray-300">Package Manager</h3>
                       <button
                         onClick={detectMissingPackages}
-                        className="text-[10px] px-2 py-1 bg-vscode-accent/20 hover:bg-vscode-accent/30 text-vscode-accent rounded transition-colors"
+                        className="text-[12px] px-2 py-1 bg-vscode-accent text-vscode-bg font-bold hover:bg-vscode-accent/80 rounded transition-colors"
                       >
                         Detect Missing
                       </button>
@@ -1272,18 +1285,18 @@ function App() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => setPackageTab('python')}
-                        className={`flex-1 px-3 py-1.5 text-[11px] font-medium rounded transition-colors ${packageTab === 'python'
-                          ? 'bg-vscode-accent text-white'
-                          : 'bg-[#252526] text-gray-400 hover:text-white'
+                        className={`flex-1 px-3 py-1.5 text-[13px] font-medium rounded transition-colors ${packageTab === 'python'
+                          ? 'bg-vscode-accent text-vscode-bg font-bold'
+                          : 'bg-vscode-input text-gray-200 hover:text-white'
                           }`}
                       >
                         Python
                       </button>
                       <button
                         onClick={() => setPackageTab('node')}
-                        className={`flex-1 px-3 py-1.5 text-[11px] font-medium rounded transition-colors ${packageTab === 'node'
-                          ? 'bg-vscode-accent text-white'
-                          : 'bg-[#252526] text-gray-400 hover:text-white'
+                        className={`flex-1 px-3 py-1.5 text-[13px] font-medium rounded transition-colors ${packageTab === 'node'
+                          ? 'bg-vscode-accent text-vscode-bg font-bold'
+                          : 'bg-vscode-input text-gray-200 hover:text-white'
                           }`}
                       >
                         Node.js
@@ -1291,17 +1304,17 @@ function App() {
                     </div>
 
                     {/* Install New Package */}
-                    <div className="bg-[#252526] p-3 rounded border border-white/10 space-y-2">
+                    <div className="bg-vscode-input p-3 rounded border border-white/10 space-y-2">
                       <input
                         type="text"
                         placeholder={`Enter ${packageTab} package name...`}
                         value={newPackageName}
                         onChange={(e) => setNewPackageName(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleInstallNewPackage()}
-                        className="w-full bg-[#1e1e1e] border border-white/10 rounded px-2 py-1.5 text-[12px] focus:outline-none focus:border-vscode-accent/50 text-vscode-text"
+                        className="w-full bg-[#1e1e1e] border border-white/10 rounded px-2 py-1.5 text-[14px] focus:outline-none focus:border-vscode-accent/50 text-vscode-text"
                       />
                       {packageTab === 'node' && (
-                        <label className="flex items-center gap-2 text-[11px] text-gray-400 cursor-pointer">
+                        <label className="flex items-center gap-2 text-[13px] text-gray-400 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={isDevDependency}
@@ -1314,7 +1327,7 @@ function App() {
                       <button
                         onClick={handleInstallNewPackage}
                         disabled={isInstallingPackage || !newPackageName.trim()}
-                        className="w-full px-3 py-1.5 bg-vscode-accent hover:bg-vscode-accent/80 disabled:bg-gray-700 disabled:text-gray-500 text-white text-[11px] font-bold rounded transition-colors"
+                        className="w-full px-3 py-1.5 bg-vscode-accent hover:bg-vscode-accent/80 disabled:bg-gray-700 disabled:text-gray-500 text-vscode-bg text-[13px] font-bold rounded transition-colors"
                       >
                         {isInstallingPackage ? 'Installing...' : 'Install Package'}
                       </button>
@@ -1325,7 +1338,7 @@ function App() {
                   {(packageTab === 'python' ? missingPackages.python : missingPackages.node)?.length > 0 && (
                     <div className="p-3 bg-yellow-500/10 border-b border-yellow-500/20">
                       <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2 text-[11px] text-yellow-500">
+                        <div className="flex items-center gap-2 text-[13px] text-yellow-500">
                           <AlertCircle size={14} />
                           <span className="font-bold">
                             {(packageTab === 'python' ? missingPackages.python : missingPackages.node).length} Missing
@@ -1333,14 +1346,14 @@ function App() {
                         </div>
                         <button
                           onClick={handleInstallMissing}
-                          className="text-[10px] px-2 py-1 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-500 rounded transition-colors"
+                          className="text-[12px] px-2 py-1 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-500 rounded transition-colors"
                         >
                           Install All
                         </button>
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {(packageTab === 'python' ? missingPackages.python : missingPackages.node).map(pkg => (
-                          <span key={pkg} className="text-[10px] px-2 py-0.5 bg-yellow-500/20 text-yellow-500 rounded">
+                          <span key={pkg} className="text-[12px] px-2 py-0.5 bg-[#001f3f] text-white rounded border border-white/10 font-bold uppercase">
                             {pkg}
                           </span>
                         ))}
@@ -1350,7 +1363,7 @@ function App() {
 
                   {/* Installed Packages List */}
                   <div className="flex-grow overflow-y-auto custom-scrollbar">
-                    <div className="px-4 py-2 text-[12px] text-gray-500 font-bold uppercase">
+                    <div className="px-4 py-2 text-[14px] text-gray-500 font-bold uppercase">
                       Installed {packageTab === 'python' ? 'Python' : 'Node.js'} Packages
                     </div>
                     {packageTab === 'python' ? (
@@ -1360,20 +1373,20 @@ function App() {
                           .map(pkg => (
                             <div
                               key={pkg.name}
-                              className="flex items-center justify-between px-4 py-2 hover:bg-white/5 text-[13px] border-b border-white/5"
+                              className="flex items-center justify-between px-4 py-2 hover:bg-white/5 text-[16px] border-b border-white/5"
                             >
                               <div className="flex items-center gap-2">
                                 <Package size={14} className="text-vscode-accent" />
                                 <span className="text-vscode-text">{pkg.name}</span>
                               </div>
-                              <span className="text-[11px] text-gray-500">{pkg.version}</span>
+                              <span className="text-[13px] text-gray-500">{pkg.version}</span>
                             </div>
                           ))
                       ) : (
-                        <div className="p-4 text-[12px] text-gray-600 italic">No packages installed</div>
+                        <div className="p-4 text-[14px] text-gray-600 italic">No packages installed</div>
                       )
                     ) : (
-                      <div className="p-4 text-[12px] text-gray-600 italic">
+                      <div className="p-4 text-[14px] text-gray-600 italic">
                         Check package.json for Node.js packages
                       </div>
                     )}
@@ -1384,7 +1397,7 @@ function App() {
                   {/* Integration Manager Header */}
                   <div className="p-4 border-b border-white/5 space-y-3">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-[12px] font-bold uppercase text-gray-500">Integrations</h3>
+                      <h3 className="text-[14px] font-bold uppercase text-gray-500">Integrations</h3>
                       <div className="flex gap-2">
                         <button
                           onClick={fetchGitStatus}
@@ -1397,30 +1410,30 @@ function App() {
                     </div>
 
                     {/* Integration Tabs */}
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 bg-[#0f172a] p-1 rounded-lg border border-white/5">
                       <button
                         onClick={() => setIntegrationMode('github')}
-                        className={`flex-1 px-3 py-1.5 text-[11px] font-medium rounded transition-colors flex items-center justify-center gap-2 ${integrationMode === 'github'
-                          ? 'bg-vscode-accent text-white'
-                          : 'bg-[#252526] text-gray-400 hover:text-white'
+                        className={`flex-1 px-3 py-1.5 text-[13px] font-medium rounded transition-all flex items-center justify-center gap-2 ${integrationMode === 'github'
+                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
+                          : 'text-gray-400 hover:text-white hover:bg-white/5'
                           }`}
                       >
                         <Link size={12} /> GitHub
                       </button>
                       <button
                         onClick={() => setIntegrationMode('vercel')}
-                        className={`flex-1 px-3 py-1.5 text-[11px] font-medium rounded transition-colors flex items-center justify-center gap-2 ${integrationMode === 'vercel'
-                          ? 'bg-vscode-accent text-white'
-                          : 'bg-[#252526] text-gray-400 hover:text-white'
+                        className={`flex-1 px-3 py-1.5 text-[13px] font-medium rounded transition-all flex items-center justify-center gap-2 ${integrationMode === 'vercel'
+                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
+                          : 'text-gray-400 hover:text-white hover:bg-white/5'
                           }`}
                       >
                         <Zap size={12} /> Vercel
                       </button>
                       <button
                         onClick={() => setIntegrationMode('supabase')}
-                        className={`flex-1 px-3 py-1.5 text-[11px] font-medium rounded transition-colors flex items-center justify-center gap-2 ${integrationMode === 'supabase'
-                            ? 'bg-vscode-accent text-white'
-                            : 'bg-[#252526] text-gray-400 hover:text-white'
+                        className={`flex-1 px-3 py-1.5 text-[13px] font-medium rounded transition-all flex items-center justify-center gap-2 ${integrationMode === 'supabase'
+                          ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
+                          : 'text-gray-400 hover:text-white hover:bg-white/5'
                           }`}
                       >
                         <Database size={12} /> Supabase
@@ -1431,11 +1444,11 @@ function App() {
                     {integrationMode === 'github' && (
                       <div className="space-y-3">
                         {!gitStatus.initialized ? (
-                          <div className="p-4 bg-[#252526] rounded border border-white/10 text-center space-y-3">
-                            <div className="text-gray-400 text-[12px]">Git repozitorijum nije inicijalizovan.</div>
+                          <div className="p-4 bg-[#0f172a] rounded-lg border border-blue-500/20 text-center space-y-3 shadow-sm">
+                            <div className="text-gray-400 text-[14px]">Git repozitorijum nije inicijalizovan.</div>
                             <button
                               onClick={handleGitInit}
-                              className="w-full px-3 py-1.5 bg-vscode-accent hover:bg-vscode-accent/80 text-white text-[11px] font-bold rounded transition-colors"
+                              className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-[13px] font-bold rounded transition-colors shadow-lg shadow-blue-900/50"
                             >
                               Inicijalizuj Git
                             </button>
@@ -1443,25 +1456,25 @@ function App() {
                         ) : (
                           <>
                             {/* Commit Section */}
-                            <div className="bg-[#252526] p-3 rounded border border-white/10 space-y-2">
+                            <div className="bg-[#0f172a] p-3 rounded-lg border border-white/5 space-y-2">
                               <textarea
                                 placeholder="Commit poruka..."
                                 value={commitMessage}
                                 onChange={(e) => setCommitMessage(e.target.value)}
-                                className="w-full bg-[#1e1e1e] border border-white/10 rounded px-2 py-1.5 text-[12px] focus:outline-none focus:border-vscode-accent/50 text-vscode-text min-h-[60px] resize-none"
+                                className="w-full bg-vscode-activity border border-white/10 rounded px-2 py-2 text-[14px] focus:outline-none focus:border-vscode-accent/50 text-gray-200 min-h-[60px] resize-none placeholder-gray-300"
                               />
                               <div className="flex gap-2">
                                 <button
                                   onClick={handleGitCommit}
                                   disabled={!commitMessage.trim()}
-                                  className="flex-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 disabled:text-gray-500 text-white text-[11px] font-bold rounded transition-colors flex items-center justify-center gap-2"
+                                  className="flex-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-gray-800 disabled:text-gray-600 text-white text-[13px] font-bold rounded transition-colors flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/20"
                                 >
                                   <Check size={12} /> Commit
                                 </button>
                                 <button
                                   onClick={handleGitPush}
                                   disabled={isPushing}
-                                  className="flex-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 disabled:text-gray-500 text-white text-[11px] font-bold rounded transition-colors flex items-center justify-center gap-2"
+                                  className="flex-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-600 text-white text-[13px] font-bold rounded transition-colors flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20"
                                 >
                                   {isPushing ? 'Pushing...' : 'Push'}
                                 </button>
@@ -1471,18 +1484,18 @@ function App() {
                             {/* Changes List */}
                             <div className="space-y-1">
                               <div className="flex items-center justify-between px-1">
-                                <span className="text-[11px] font-bold text-gray-500 uppercase">Promene</span>
-                                <span className="text-[10px] bg-vscode-accent/20 text-vscode-accent px-1.5 rounded-full">
-                                  {gitStatus.modified.length + gitStatus.untracked.length}
+                                <span className="text-[13px] font-bold text-gray-300 uppercase">Promene</span>
+                                <span className="text-[12px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full font-mono">
+                                  {(gitStatus.modified?.length || 0) + (gitStatus.untracked?.length || 0)}
                                 </span>
                               </div>
                               <div className="max-h-[300px] overflow-y-auto custom-scrollbar space-y-0.5">
-                                {[...gitStatus.modified, ...gitStatus.untracked].length === 0 ? (
-                                  <div className="text-[11px] text-gray-500 italic p-2 text-center">Nema promena</div>
+                                {[...(gitStatus.modified || []), ...(gitStatus.untracked || [])].length === 0 ? (
+                                  <div className="text-[13px] text-gray-300 italic p-2 text-center">Nema promena</div>
                                 ) : (
-                                  [...gitStatus.modified, ...gitStatus.untracked].map((file, idx) => (
-                                    <div key={idx} className="flex items-center gap-2 px-2 py-1 hover:bg-white/5 rounded group cursor-pointer text-[12px]">
-                                      <span className="text-yellow-500 text-[10px]">M</span>
+                                  [...(gitStatus.modified || []), ...(gitStatus.untracked || [])].map((file, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 px-2 py-1 hover:bg-white/5 rounded group cursor-pointer text-[14px]">
+                                      <span className="text-yellow-500 text-[12px]">M</span>
                                       <span className="text-gray-300 truncate">{file}</span>
                                     </div>
                                   ))
@@ -1496,7 +1509,7 @@ function App() {
 
                     {/* Vercel Content Placeholder */}
                     {integrationMode === 'vercel' && (
-                      <div className="p-8 text-center text-gray-500 text-[12px] italic">
+                      <div className="p-8 text-center text-gray-300 text-[14px] italic">
                         Vercel integracija uskoro...
                       </div>
                     )}
@@ -1505,26 +1518,26 @@ function App() {
                     {integrationMode === 'supabase' && (
                       <div className="space-y-3">
                         {!supabaseConnected ? (
-                          <div className="bg-[#252526] p-3 rounded border border-white/10 space-y-2">
-                            <div className="text-[11px] text-gray-400 mb-1">Povezivanje sa bazom</div>
+                          <div className="bg-vscode-sidebar-header p-3 rounded border border-white/10 space-y-2">
+                            <div className="text-[13px] text-gray-400 mb-1">Povezivanje sa bazom</div>
                             <input
                               type="text"
                               placeholder="Supabase Project URL"
                               value={supabaseUrl}
                               onChange={(e) => setSupabaseUrl(e.target.value)}
-                              className="w-full bg-[#1e1e1e] border border-white/10 rounded px-2 py-1.5 text-[11px] focus:outline-none focus:border-vscode-accent/50 text-vscode-text"
+                              className="w-full bg-[#1e1e1e] border border-white/10 rounded px-2 py-1.5 text-[13px] focus:outline-none focus:border-vscode-accent/50 text-vscode-text"
                             />
                             <input
                               type="password"
                               placeholder="Supabase Anon Key"
                               value={supabaseKey}
                               onChange={(e) => setSupabaseKey(e.target.value)}
-                              className="w-full bg-[#1e1e1e] border border-white/10 rounded px-2 py-1.5 text-[11px] focus:outline-none focus:border-vscode-accent/50 text-vscode-text"
+                              className="w-full bg-[#1e1e1e] border border-white/10 rounded px-2 py-1.5 text-[13px] focus:outline-none focus:border-vscode-accent/50 text-vscode-text"
                             />
                             <button
                               onClick={handleSupabaseConnect}
                               disabled={isConnectingSupabase || !supabaseUrl || !supabaseKey}
-                              className="w-full px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 disabled:text-gray-500 text-white text-[11px] font-bold rounded transition-colors"
+                              className="w-full px-3 py-1.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-700 disabled:text-gray-300 text-white text-[13px] font-bold rounded transition-colors"
                             >
                               {isConnectingSupabase ? 'Povezivanje...' : 'Connect Supabase'}
                             </button>
@@ -1532,12 +1545,12 @@ function App() {
                         ) : (
                           <div className="space-y-3">
                             <div className="flex items-center justify-between p-2 bg-green-500/10 border border-green-500/20 rounded">
-                              <div className="flex items-center gap-2 text-green-500 text-[11px] font-bold">
+                              <div className="flex items-center gap-2 text-green-500 text-[13px] font-bold">
                                 <Check size={14} /> Connected
                               </div>
                               <button
                                 onClick={() => setSupabaseConnected(false)}
-                                className="text-[10px] text-gray-400 hover:text-white"
+                                className="text-[12px] text-gray-400 hover:text-white"
                               >
                                 Disconnect
                               </button>
@@ -1545,15 +1558,15 @@ function App() {
 
                             <div className="space-y-1">
                               <div className="flex items-center justify-between px-1">
-                                <span className="text-[11px] font-bold text-gray-500 uppercase">Tabele</span>
+                                <span className="text-[13px] font-bold text-gray-300 uppercase">Tabele</span>
                                 <button onClick={fetchSupabaseTables} className="text-gray-400 hover:text-white"><Activity size={12} /></button>
                               </div>
                               <div className="max-h-[300px] overflow-y-auto custom-scrollbar space-y-0.5">
-                                {supabaseTables.length === 0 ? (
-                                  <div className="text-[11px] text-gray-500 italic p-2 text-center">Nema tabela</div>
+                                {(supabaseTables || []).length === 0 ? (
+                                  <div className="text-[13px] text-gray-300 italic p-2 text-center">Nema tabela</div>
                                 ) : (
-                                  supabaseTables.map((table, idx) => (
-                                    <div key={idx} className="flex items-center gap-2 px-2 py-1 hover:bg-white/5 rounded group cursor-pointer text-[12px]">
+                                  (supabaseTables || []).map((table, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 px-2 py-1 hover:bg-white/5 rounded group cursor-pointer text-[14px]">
                                       <Database size={12} className="text-vscode-accent" />
                                       <span className="text-gray-300 truncate">{table}</span>
                                     </div>
@@ -1568,6 +1581,7 @@ function App() {
                   </div>
                 </div>
               ) : null}
+
             </motion.div>
             <div
               className="w-1 cursor-col-resize hover:bg-vscode-accent transition-colors bg-white/5 z-30"
@@ -1578,10 +1592,10 @@ function App() {
       </AnimatePresence>
 
       {/* Main Content (Editor + Output) */}
-      <div className="flex-grow flex flex-col min-w-0 bg-[#1e1e1e]">
+      <div className="flex-grow flex flex-col min-w-0 bg-vscode-bg">
         {/* Tab Bar */}
         {openFiles.length > 0 && (
-          <div className="flex bg-[#252526] border-b border-vscode-border overflow-x-auto no-scrollbar shrink-0 h-9 items-center">
+          <div className="flex bg-vscode-sidebar-header border-b border-vscode-border overflow-x-auto no-scrollbar shrink-0 h-9 items-center">
             {openFiles.map(file => {
               const fileName = file.path.split(/[\\\/]/).pop();
               const isActive = activeFile === file.path;
@@ -1589,11 +1603,11 @@ function App() {
                 <div
                   key={file.path}
                   onClick={() => { setActiveFile(file.path); setFileContent(file.content); }}
-                  className={`flex items-center gap-2 px-3 h-full cursor-pointer text-[12px] border-r border-vscode-border min-w-[120px] max-w-[200px] transition-colors relative group
-                    ${isActive ? 'bg-[#1e1e1e] text-blue-400 border-t-2 border-vscode-accent' : 'bg-[#2d2d2d]/30 text-gray-500 hover:bg-white/5 hover:text-gray-300'}
+                  className={`flex items-center gap-2 px-3 h-full cursor-pointer text-[14px] border-r border-vscode-border min-w-[120px] max-w-[200px] transition-colors relative group
+                    ${isActive ? 'bg-vscode-bg text-blue-400 border-t-2 border-vscode-accent' : 'bg-[#2d2d2d]/30 text-gray-300 hover:bg-white/5 hover:text-gray-300'}
                   `}
                 >
-                  <FileCode size={14} className={isActive ? 'text-blue-400' : 'text-gray-500'} />
+                  <FileCode size={14} className={isActive ? 'text-blue-400' : 'text-gray-300'} />
                   <span className="truncate flex-grow">{fileName}{file.isDirty ? '*' : ''}</span>
                   <button
                     onClick={(e) => handleCloseTab(e, file.path)}
@@ -1608,14 +1622,14 @@ function App() {
         )}
 
         <div className="h-10 bg-vscode-sidebar border-b border-vscode-border flex items-center px-4 justify-between shrink-0">
-          <div className="flex items-center text-[14px] truncate max-w-[70%]">
+          <div className="flex items-center text-[17px] truncate max-w-[70%]">
             {activeFile ? (
-              <div className="flex items-center gap-2 text-gray-400 text-[11px] uppercase tracking-wider">
+              <div className="flex items-center gap-2 text-gray-400 text-[13px] uppercase tracking-wider">
                 <span className="opacity-50">Editor</span>
                 <ChevronRight size={12} className="opacity-30" />
                 <span className="truncate italic font-medium">{activeFile}</span>
               </div>
-            ) : <span className="text-[#555] italic text-[14px]">Otvori bilo koji fajl iz Explorera</span>}
+            ) : <span className="text-[#555] italic text-[17px]">Otvori bilo koji fajl iz Explorera</span>}
           </div>
           <div className="flex items-center gap-1">
             <button onClick={handleSave} disabled={!activeFile} className="p-1.5 hover:bg-white/10 rounded text-gray-400 hover:text-white disabled:opacity-20" title="Sačuvaj (Ctrl+S)">
@@ -1629,7 +1643,7 @@ function App() {
           <Editor
             height="100%"
             defaultLanguage="python"
-            theme="navy-theme"
+            theme="petrol-theme"
             beforeMount={handleEditorWillMount}
             value={fileContent}
             onChange={handleEditorChange}
@@ -1644,200 +1658,249 @@ function App() {
         />
 
         {/* Output Panel */}
-        <div style={{ height: bottomHeight }} className="bg-vscode-sidebar border-t border-vscode-border flex flex-col shrink-0 min-h-[40px]">
+        <div style={{ height: isChatMaximized ? 'calc(100vh - 80px)' : bottomHeight }} className={`bg-vscode-sidebar border-t border-vscode-border flex flex-col shrink-0 min-h-[40px] transition-all duration-300 ${isChatMaximized ? 'fixed bottom-0 left-0 right-0 z-[100]' : ''}`}>
           {/* SR: Header Bar (Cursor Style) */}
-          <div className="flex px-4 items-center justify-between shrink-0 h-10 border-b border-vscode-border bg-[#0a192f]">
-            <div className="flex items-center gap-2 text-[11px] text-gray-400">
-              <ChevronRight size={14} className="opacity-50" />
-              <span>0 Files With Changes</span>
+          <div className="flex px-4 items-center justify-between shrink-0 h-10 border-b border-vscode-border bg-vscode-activity">
+            <div className="flex items-center gap-3 text-[13px] text-gray-400">
+              <div className="flex items-center gap-1">
+                <ChevronRight size={14} className="opacity-50" />
+                <span>0 Files With Changes</span>
+              </div>
+              <div className="h-3 w-[1px] bg-white/10" />
+              <button
+                onClick={() => setChatLayout(prev => prev === 'bottom' ? 'sidebar' : 'bottom')}
+                className="flex items-center gap-1.5 hover:text-white transition-colors"
+                title="Promeni raspored (Dno / Sidebar)"
+              >
+                <Bot size={14} />
+                <span>{chatLayout === 'bottom' ? 'Prebaci u Sidebar' : 'Vrati na Dno'}</span>
+              </button>
             </div>
-            <button className="flex items-center gap-1.5 px-3 py-1 bg-[#233554] hover:bg-[#324b7a] transition-colors rounded text-[11px] text-[#64ffda] font-medium border border-[#64ffda]/20 shadow-lg group">
-              <Check size={12} className="group-hover:scale-110 transition-transform" />
-              Review Changes
-            </button>
+            <div className="flex items-center gap-2">
+              <button className="flex items-center gap-1.5 px-3 py-1 bg-[#233554] hover:bg-[#324b7a] transition-colors rounded text-[13px] text-[#64ffda] font-medium border border-[#64ffda]/20 shadow-lg group">
+                <Check size={12} className="group-hover:scale-110 transition-transform" />
+                Review Changes
+              </button>
+              {isChatMaximized && (
+                <button onClick={() => setIsChatMaximized(false)} className="p-1 hover:bg-white/10 rounded text-gray-400">
+                  <X size={16} />
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="flex-grow overflow-hidden flex flex-col bg-[#f8f9fa]"> {/* Pearl White Background for Chat Area */}
-            {/* Chat History View */}
-            <div className="flex-grow overflow-y-auto custom-scrollbar p-4 space-y-4">
-              {(activeFile ? (openFiles.find(f => f.path === activeFile)?.messages || []) : globalMessages).map(msg => (
-                <div key={msg.id} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[85%] p-3 rounded-xl text-[18px] leading-snug shadow-sm overflow-hidden ${msg.type === 'user'
-                    ? 'bg-[#006d77] text-white rounded-tr-none' // Petroleum User Msg
-                    : 'bg-white border border-gray-200 text-[#0a192f] rounded-tl-none shadow-md' // Pearl/White AI Msg with Navy Text
-                    }`}>
-                    {msg.type === 'ai' ? (
-                      <div className="space-y-1.5 compact-markdown">
-                        <ReactMarkdown
-                          rehypePlugins={[rehypeHighlight]}
-                          components={{
-                            p: ({ node, ...props }) => <p className="my-1" {...props} />,
-                            ul: ({ node, ...props }) => <ul className="list-disc pl-5 my-1" {...props} />,
-                            ol: ({ node, ...props }) => <ol className="list-decimal pl-5 my-1" {...props} />,
-                            li: ({ node, ...props }) => <li className="my-0.5" {...props} />,
-                            code({ node, inline, className, children, ...props }) {
-                              return !inline ? (
-                                <div className="my-2 rounded-md overflow-hidden border border-gray-200 bg-gray-50">
-                                  <div className="bg-gray-100 px-3 py-1 text-[10px] text-gray-500 border-b border-gray-200 flex justify-between">
-                                    <span>CODE</span>
+          {chatLayout === 'bottom' ? (
+            <div className="flex-grow overflow-hidden flex flex-col"> {/* DARK PETROL Background for Chat Area */}
+              {/* AI Response Logic matches Input Look */}
+              <div className="flex-grow overflow-y-auto custom-scrollbar p-4 space-y-4 bg-vscode-bg">
+                {(activeFile ? (openFiles.find(f => f.path === activeFile)?.messages || []) : globalMessages).map(msg => (
+                  <div key={msg.id} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[85%] p-4 rounded-xl text-[18px] leading-relaxed shadow-lg overflow-hidden border ${msg.type === 'user'
+                      ? 'bg-[#006d77] text-white rounded-tr-none border-[#004d40]' // Petroleum User Msg
+                      : 'bg-[#0a192f] border-[#233554] text-white rounded-tl-none' // Dark Petrol AI Msg (Matches Input)
+                      }`}>
+                      {msg.type === 'ai' ? (
+                        <div className="space-y-1.5 compact-markdown">
+                          <ReactMarkdown
+                            rehypePlugins={[rehypeHighlight]}
+                            components={{
+                              p: ({ node, ...props }) => <p className="my-1" {...props} />,
+                              ul: ({ node, ...props }) => <ul className="list-disc pl-5 my-1" {...props} />,
+                              ol: ({ node, ...props }) => <ol className="list-decimal pl-5 my-1" {...props} />,
+                              li: ({ node, ...props }) => <li className="my-0.5" {...props} />,
+                              code({ node, inline, className, children, ...props }) {
+                                return !inline ? (
+                                  <div className="my-2 rounded-md overflow-hidden border border-gray-200 bg-gray-50">
+                                    <div className="bg-gray-100 px-3 py-1 text-[12px] text-gray-500 border-b border-gray-200 flex justify-between">
+                                      <span>CODE</span>
+                                    </div>
+                                    <code className={`${className} block p-3 text-[17px] font-mono text-[#0a192f] leading-snug`} {...props}>
+                                      {children}
+                                    </code>
                                   </div>
-                                  <code className={`${className} block p-3 text-[17px] font-mono text-[#0a192f] leading-snug`} {...props}>
+                                ) : (
+                                  <code className="bg-gray-100 px-1 py-0.5 rounded text-[17px] font-mono text-pink-600" {...props}>
                                     {children}
                                   </code>
-                                </div>
-                              ) : (
-                                <code className="bg-gray-100 px-1 py-0.5 rounded text-[14px] font-mono text-pink-600" {...props}>
-                                  {children}
-                                </code>
-                              )
-                            },
-                            strong: ({ node, ...props }) => <strong className="text-[#8b0000] font-bold" {...props} />,
-                            ul: ({ node, ...props }) => <ul className="list-disc pl-5 my-2 space-y-1" {...props} />,
-                            ol: ({ node, ...props }) => <ol className="list-decimal pl-5 my-2 space-y-1" {...props} />,
-                            li: ({ node, ...props }) => <li className="pl-1" {...props} />
-                          }}
-                        >
-                          {msg.text}
-                        </ReactMarkdown>
+                                )
+                              },
+                              strong: ({ node, ...props }) => <strong className="text-[#8b0000] font-bold" {...props} />,
+                              ul: ({ node, ...props }) => <ul className="list-disc pl-5 my-2 space-y-1" {...props} />,
+                              ol: ({ node, ...props }) => <ol className="list-decimal pl-5 my-2 space-y-1" {...props} />,
+                              li: ({ node, ...props }) => <li className="pl-1" {...props} />
+                            }}
+                          >
+                            {msg.text}
+                          </ReactMarkdown>
 
-                        {/* SR: Model Badge */}
-                        {msg.agentModel && (
-                          <div className="mt-2 pt-2 border-t border-gray-100">
-                            <span className="inline-block bg-[#64ffda]/10 text-[#006d77] text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wide">
-                              {msg.agentModel.replace('gemini/', '').replace('gpt-', 'GPT-').replace('claude-', 'Claude ')}
-                            </span>
-                          </div>
-                        )}
+                          {/* SR: Model Badge */}
+                          {msg.agentModel && (
+                            <div className="mt-2 pt-2 border-t border-gray-100">
+                              <span className="inline-block bg-[#64ffda]/10 text-[#006d77] text-[11px] font-bold px-2 py-0.5 rounded uppercase tracking-wide">
+                                {msg.agentModel.replace('gemini/', '').replace('gpt-', 'GPT-').replace('claude-', 'Claude ')}
+                              </span>
+                            </div>
+                          )}
 
-                        {/* SR: PREVIEW UI BLOK */}
-                        {msg.preview && (
-                          <div className="mt-3 bg-white border border-vscode-accent/50 rounded-lg overflow-hidden shadow-sm">
-                            <div className="bg-[#64ffda]/10 px-3 py-2 border-b border-[#64ffda]/20 flex items-center gap-2">
-                              <AlertCircle size={14} className="text-[#006d77]" />
-                              <span className="text-[11px] font-bold text-[#006d77] uppercase">Proposed Changes</span>
-                              <span className="text-[10px] text-gray-500 ml-auto">{msg.preview.filename}</span>
+                          {/* SR: PREVIEW UI BLOK */}
+                          {msg.preview && (
+                            <div className="mt-3 bg-white border border-vscode-accent/50 rounded-lg overflow-hidden shadow-sm">
+                              <div className="bg-[#64ffda]/10 px-3 py-2 border-b border-[#64ffda]/20 flex items-center gap-2">
+                                <AlertCircle size={14} className="text-[#006d77]" />
+                                <span className="text-[13px] font-bold text-[#006d77] uppercase">Proposed Changes</span>
+                                <span className="text-[12px] text-gray-500 ml-auto">{msg.preview.filename}</span>
+                              </div>
+                              <div className="p-3 bg-[#f8f9fa] max-h-60 overflow-y-auto custom-scrollbar border-b border-gray-100">
+                                <pre className="text-[13px] font-mono text-[#0a192f] whitespace-pre-wrap">{msg.preview.code}</pre>
+                              </div>
+                              <div className="p-2 flex gap-2 bg-gray-50">
+                                <button
+                                  onClick={() => handleApply(msg.id, msg.preview.filename, msg.preview.code)}
+                                  className="flex-1 bg-green-600 hover:bg-green-500 text-white text-[13px] font-bold py-1.5 rounded flex items-center justify-center gap-1 transition-colors"
+                                >
+                                  <Check size={12} /> Apply
+                                </button>
+                                <button
+                                  onClick={() => handleDiscard(msg.id)}
+                                  className="flex-1 bg-red-600/80 hover:bg-red-500 text-white text-[13px] font-bold py-1.5 rounded flex items-center justify-center gap-1 transition-colors"
+                                >
+                                  <X size={12} /> Discard
+                                </button>
+                              </div>
                             </div>
-                            <div className="p-3 bg-[#f8f9fa] max-h-60 overflow-y-auto custom-scrollbar border-b border-gray-100">
-                              <pre className="text-[11px] font-mono text-[#0a192f] whitespace-pre-wrap">{msg.preview.code}</pre>
-                            </div>
-                            <div className="p-2 flex gap-2 bg-gray-50">
-                              <button
-                                onClick={() => handleApply(msg.id, msg.preview.filename, msg.preview.code)}
-                                className="flex-1 bg-green-600 hover:bg-green-500 text-white text-[11px] font-bold py-1.5 rounded flex items-center justify-center gap-1 transition-colors"
-                              >
-                                <Check size={12} /> Apply
-                              </button>
-                              <button
-                                onClick={() => handleDiscard(msg.id)}
-                                className="flex-1 bg-red-600/80 hover:bg-red-500 text-white text-[11px] font-bold py-1.5 rounded flex items-center justify-center gap-1 transition-colors"
-                              >
-                                <X size={12} /> Discard
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      msg.text
-                    )}
+                          )}
+                        </div>
+                      ) : (
+                        msg.text
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
-              <div ref={chatEndRef} />
-            </div>
+                ))}
+                <div ref={chatEndRef} />
+              </div>
 
-            {/* SR: Modern Chat Input Area (Cursor Style) */}
-            <div className="p-4 bg-vscode-sidebar border-t border-vscode-border shrink-0 flex flex-col gap-2 z-50">
-              <div className="relative bg-[#0a192f]/80 backdrop-blur-md border border-[#233554] rounded-xl shadow-2xl overflow-hidden group hover:border-[#64ffda]/30 transition-all focus-within:border-[#64ffda]/50">
-                {/* Attachment Previews */}
-                {attachments.length > 0 && (
-                  <div className="flex flex-wrap gap-2 p-3 bg-white/5 border-b border-white/10 max-h-32 overflow-y-auto custom-scrollbar">
-                    {attachments.map(att => (
-                      <div key={att.id} className="relative group/att flex items-center gap-2 bg-vscode-activity p-2 rounded border border-white/10 shadow-sm">
-                        {att.type === 'image' ? (
-                          <img src={att.data} alt={att.name} className="w-8 h-8 rounded object-cover" />
-                        ) : (
-                          <FileText size={16} className="text-[#64ffda]" />
-                        )}
-                        <span className="text-[10px] text-gray-300 truncate max-w-[100px]">{att.name}</span>
-                        <button
-                          onClick={() => removeAttachment(att.id)}
-                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover/att:opacity-100 transition-opacity"
-                        >
-                          <X size={10} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              {/* SR: Modern Chat Input Area (Cursor Style) */}
+              <div className="p-4 bg-vscode-sidebar border-t border-vscode-border shrink-0 flex flex-col gap-2 z-50">
+                <div className="relative bg-[#0a192f]/80 backdrop-blur-md border border-[#233554] rounded-xl shadow-2xl overflow-hidden group hover:border-[#64ffda]/30 transition-all focus-within:border-[#64ffda]/50">
+                  {/* Attachment Previews */}
+                  {attachments.length > 0 && (
+                    <div className="flex flex-wrap gap-2 p-3 bg-white/5 border-b border-white/10 max-h-32 overflow-y-auto custom-scrollbar">
+                      {attachments.map(att => (
+                        <div key={att.id} className="relative group/att flex items-center gap-2 bg-vscode-activity p-2 rounded border border-white/10 shadow-sm">
+                          {att.type === 'image' ? (
+                            <img src={att.data} alt={att.name} className="w-8 h-8 rounded object-cover" />
+                          ) : (
+                            <FileText size={16} className="text-[#64ffda]" />
+                          )}
+                          <span className="text-[12px] text-gray-300 truncate max-w-[100px]">{att.name}</span>
+                          <button
+                            onClick={() => removeAttachment(att.id)}
+                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover/att:opacity-100 transition-opacity"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
-                <textarea
-                  className="w-full bg-transparent border-none rounded-t-xl p-4 text-[18px] h-24 focus:outline-none resize-none placeholder:text-gray-500 text-white scrollbar-hide"
-                  value={aiPrompt}
-                  onChange={(e) => setAiPrompt(e.target.value)}
-                  onPaste={handlePaste}
-                  placeholder="Pitajte agenta ili unesite komandu..."
-                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
-                />
+                  <textarea
+                    className="w-full bg-transparent border-none rounded-t-xl p-4 text-[18px] h-24 focus:outline-none resize-none placeholder:text-gray-500 text-white scrollbar-hide"
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    onPaste={handlePaste}
+                    placeholder="Pitajte agenta ili unesite komandu..."
+                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
+                  />
 
-                {/* Bottom Bar Tools */}
-                <div className="flex items-center justify-between px-3 py-2 bg-white/5 border-t border-white/5">
-                  <div className="flex items-center gap-3">
+                  {/* Bottom Bar Tools */}
+                  <div className="flex items-center justify-between px-3 py-2 bg-white/5 border-t border-white/5">
                     <div className="flex items-center gap-1 group/mode relative">
                       <button
                         onClick={() => setChatMode(prev => prev === 'Planning' ? 'Act' : 'Planning')}
                         className="flex items-center gap-1.5 px-2 py-1 hover:bg-white/10 rounded transition-colors text-white/60 hover:text-white"
                       >
                         <Zap size={14} className={chatMode === 'Act' ? "text-[#f78c6c]" : "text-gray-400"} />
-                        <span className="text-[11px] font-medium">{chatMode}</span>
+                        <span className="text-[13px] font-medium">{chatMode}</span>
                         <ChevronDown size={10} />
                       </button>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => fileInputRef.current.click()} className="p-1.5 hover:bg-white/10 rounded text-white/40 hover:text-white transition-colors" title="Dodaj fajlove">
-                      <Paperclip size={18} />
-                    </button>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={handleCopyChat}
-                        className="p-1.5 text-gray-500 hover:text-vscode-accent hover:bg-white/5 rounded transition-colors"
-                        title="Kopiraj ceo razgovor (Markdown)"
+                    {/* Model Selector - Bottom */}
+                    <div className="flex items-center gap-1 group/model relative ml-2 border-l border-white/10 pl-3">
+                      <select
+                        value={status?.model || 'gemini/gemini-1.5-flash'}
+                        onChange={(e) => handleModelChange(e.target.value)}
+                        className="bg-transparent text-[13px] font-medium text-white/60 hover:text-white outline-none cursor-pointer appearance-none flex items-center gap-1 pr-4"
                       >
-                        <Copy size={16} />
+                        {availableModels.map(m => (
+                          <option key={m.id} value={m.id} className="bg-[#051c24] text-white">
+                            {m.name.split(' (')[0]}
+                          </option>
+                        ))}
+                      </select>
+                      <Cpu size={12} className="absolute right-0 text-white/30 pointer-events-none" />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => fileInputRef.current.click()} className="p-1.5 hover:bg-white/10 rounded text-white/40 hover:text-white transition-colors" title="Dodaj fajlove">
+                        <Paperclip size={18} />
+                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={handleCopyChat}
+                          className="p-1.5 text-gray-500 hover:text-vscode-accent hover:bg-white/5 rounded transition-colors"
+                          title="Kopiraj ceo razgovor (Markdown)"
+                        >
+                          <Copy size={16} />
+                        </button>
+                        <button
+                          onClick={() => setIsChatMaximized(!isChatMaximized)}
+                          className="p-1.5 text-gray-500 hover:text-vscode-accent hover:bg-white/5 rounded transition-colors"
+                          title={isChatMaximized ? "Smanji čat" : "Proširi čat"}
+                        >
+                          {isChatMaximized ? <ChevronRight size={18} /> : <Plus size={18} />}
+                        </button>
+                      </div>
+                      <button className="p-1.5 hover:bg-white/10 rounded text-white/40 hover:text-white transition-colors" title="Glasovni unos">
+                        <Mic size={18} />
                       </button>
                       <button
-                        onClick={() => setIsChatMaximized(!isChatMaximized)}
-                        className="p-1.5 text-gray-500 hover:text-vscode-accent hover:bg-white/5 rounded transition-colors"
-                        title={isChatMaximized ? "Smanji čat" : "Proširi čat"}
+                        onClick={() => { if (!loading) handleSendMessage() }}
+                        className={`p-2 transition-all rounded-lg shadow-lg ${loading ? 'bg-red-500 text-white scale-110' : 'bg-[#64ffda] text-[#0a192f] hover:bg-[#a50000] hover:text-white active:scale-95'}`}
+                        title={loading ? "Prekini generisanje" : "Pošalji (Enter)"}
                       >
-                        {isChatMaximized ? <ChevronRight size={18} /> : <Plus size={18} />}
+                        {loading ? <Square size={16} fill="white" /> : <ChevronRight size={18} />}
                       </button>
                     </div>
-                    <button className="p-1.5 hover:bg-white/10 rounded text-white/40 hover:text-white transition-colors" title="Glasovni unos">
-                      <Mic size={18} />
-                    </button>
-                    <button
-                      onClick={() => { if (!loading) handleSendMessage() }}
-                      className={`p-2 transition-all rounded-lg shadow-lg ${loading ? 'bg-red-500 text-white scale-110' : 'bg-[#64ffda] text-[#0a192f] hover:bg-[#a50000] hover:text-white active:scale-95'}`}
-                      title={loading ? "Prekini generisanje" : "Pošalji (Enter)"}
-                    >
-                      {loading ? <Square size={16} fill="white" /> : <ChevronRight size={18} />}
-                    </button>
                   </div>
                 </div>
-              </div>
 
-              <input
-                type="file"
-                multiple
-                ref={fileInputRef}
-                className="hidden"
-                onChange={handleFileSelect}
-              />
+                <input
+                  type="file"
+                  multiple
+                  ref={fileInputRef}
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex-grow flex flex-col overflow-hidden bg-vscode-bg custom-scrollbar p-1">
+              {/* SR: Console logs repeated here for visibility when chat is in sidebar */}
+              <div className="flex-grow overflow-y-auto p-4 font-mono text-[14px] space-y-1 bg-vscode-bg">
+                {logs.map(log => (
+                  <div key={log.id} className="flex gap-3 border-b border-white/5 pb-1">
+                    <span className="text-gray-500 shrink-0 select-none">[{log.time}]</span>
+                    <span className={log.type === 'success' ? 'text-green-400' : log.type === 'error' ? 'text-red-400' : log.type === 'warning' ? 'text-yellow-400' : 'text-vscode-text'}>
+                      {log.msg}
+                    </span>
+                  </div>
+                ))}
+                <div ref={chatEndRef} />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Floating AI Agent Console */}
@@ -1860,11 +1923,11 @@ function App() {
               {/* Header / Drag Bar */}
               <div
                 onMouseDown={startDragging}
-                className="p-3 flex items-center justify-between border-b border-vscode-border bg-[#0d1b2e] cursor-move select-none shrink-0"
+                className="p-3 flex items-center justify-between border-b border-vscode-border bg-vscode-sidebar-header cursor-move select-none shrink-0"
               >
                 <div className="flex items-center gap-2">
                   <TerminalIcon size={16} className="text-[#64ffda]" />
-                  <span className="text-[12px] font-bold uppercase tracking-widest text-[#64ffda]">Output Console</span>
+                  <span className="text-[14px] font-bold uppercase tracking-widest text-[#64ffda]">Output Console</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <button onClick={() => setShowConsole(false)} className="hover:text-white text-gray-400">
@@ -1874,7 +1937,7 @@ function App() {
               </div>
 
               {/* Console Logs */}
-              <div className="flex-grow overflow-y-auto p-4 font-mono text-[13px] space-y-1 bg-[#0a192f] custom-scrollbar">
+              <div className="flex-grow overflow-y-auto p-4 font-mono text-[16px] space-y-1 bg-vscode-bg custom-scrollbar">
                 {logs.map(log => (
                   <div key={log.id} className="flex gap-3">
                     <span className="text-gray-500 shrink-0">[{log.time}]</span>
@@ -1889,7 +1952,7 @@ function App() {
 
               {/* Status Bar */}
               <div className="p-3 bg-black/40 border-t border-white/5 flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-4 text-[11px] text-gray-500 uppercase">
+                <div className="flex items-center gap-4 text-[13px] text-gray-500 uppercase">
                   <div className="flex items-center gap-1">
                     <span>PROJEKAT:</span>
                     <span className="text-vscode-text font-medium">{currentPath.split(/[\\\/]/).pop() || 'N/A'}</span>
@@ -1901,7 +1964,7 @@ function App() {
                 </div>
                 <div className="flex items-center gap-2">
                   <div className={`w-2 h-2 rounded-full ${loading ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`} />
-                  <span className="text-[10px] text-gray-400 uppercase font-bold">{loading ? 'Processing' : 'Idle'}</span>
+                  <span className="text-[12px] text-gray-400 uppercase font-bold">{loading ? 'Processing' : 'Idle'}</span>
                 </div>
               </div>
 
@@ -1916,6 +1979,154 @@ function App() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* SR: Dedicated Right Sidebar (Chat Panel) */}
+      <AnimatePresence>
+        {chatLayout === 'sidebar' && (
+          <>
+            <div
+              className="w-1 cursor-col-resize hover:bg-vscode-accent transition-colors bg-white/5 z-30"
+              onMouseDown={startResizingRight}
+            />
+            <motion.div
+              style={{ width: rightWidth }}
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: rightWidth, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              className="bg-vscode-sidebar border-l border-vscode-border flex flex-col overflow-hidden relative shadow-2xl"
+            >
+              <div className="p-4 uppercase text-[14px] font-bold tracking-widest text-[#64ffda] flex justify-between items-center bg-vscode-sidebar-header border-b border-white/5 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <Bot size={16} className="text-vscode-accent" />
+                  <span>AI Chat Sidebar</span>
+                </div>
+                <button
+                  onClick={() => setChatLayout('bottom')}
+                  className="p-1 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-colors"
+                  title="Vrati na dno"
+                >
+                  <ChevronDown size={14} className="rotate-90" />
+                </button>
+              </div>
+
+              <div className="flex-grow flex flex-col overflow-hidden min-h-0 bg-vscode-bg">
+                <div className="flex-grow overflow-y-auto p-4 space-y-4 custom-scrollbar">
+                  {(activeFile ? (openFiles.find(f => f.path === activeFile)?.messages || []) : globalMessages).map(msg => (
+                    <div key={msg.id} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[90%] p-4 rounded-xl text-[17px] leading-relaxed shadow-lg border ${msg.type === 'user'
+                        ? 'bg-[#006d77] text-white rounded-tr-none border-[#004d40]'
+                        : 'bg-[#0a192f] border-[#233554] text-white rounded-tl-none'
+                        }`}>
+                        {msg.type === 'ai' ? (
+                          <div className="compact-markdown overflow-hidden">
+                            <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{msg.text}</ReactMarkdown>
+                          </div>
+                        ) : (
+                          msg.text
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={chatEndRef} />
+                </div>
+
+                {/* Sidebar Chat Input Area (Full Feature Sync) */}
+                <div className="p-4 bg-vscode-sidebar border-t border-white/5 shadow-2zl z-50">
+                  <div className="relative bg-[#0a192f] border border-[#233554] rounded-xl overflow-hidden group focus-within:border-vscode-accent transition-all duration-300">
+                    {/* Attachment Previews in Sidebar */}
+                    {attachments.length > 0 && (
+                      <div className="flex flex-wrap gap-2 p-3 bg-white/5 border-b border-white/10 max-h-24 overflow-y-auto custom-scrollbar">
+                        {attachments.map(att => (
+                          <div key={att.id} className="relative group/att flex items-center gap-2 bg-vscode-activity p-1.5 rounded border border-white/10">
+                            {att.type === 'image' ? (
+                              <img src={att.data} alt={att.name} className="w-6 h-6 rounded object-cover" />
+                            ) : (
+                              <FileText size={14} className="text-[#64ffda]" />
+                            )}
+                            <button
+                              onClick={() => removeAttachment(att.id)}
+                              className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover/att:opacity-100 transition-opacity"
+                            >
+                              <X size={8} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <textarea
+                      className="w-full bg-transparent border-none p-4 text-[17px] h-28 focus:outline-none resize-none placeholder:text-gray-500 text-white scrollbar-hide"
+                      value={aiPrompt}
+                      onChange={(e) => setAiPrompt(e.target.value)}
+                      onPaste={handlePaste}
+                      placeholder="Pitajte agenta..."
+                      onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendMessage())}
+                    />
+
+                    {/* Sidebar Toolbar Tools */}
+                    <div className="flex items-center justify-between px-3 py-2 bg-black/30 border-t border-white/5">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setChatMode(prev => prev === 'Planning' ? 'Act' : 'Planning')}
+                          className="flex items-center gap-1.5 px-2 py-1 hover:bg-white/5 rounded transition-colors text-white/70 hover:text-white"
+                        >
+                          <Zap size={14} className={chatMode === 'Act' ? "text-[#f78c6c]" : "text-gray-400"} />
+                          <span className="text-[12px] font-bold uppercase tracking-tighter">{chatMode}</span>
+                          <ChevronDown size={10} />
+                        </button>
+
+                        {/* Model Selector - Sidebar */}
+                        <div className="relative group/model">
+                          <select
+                            value={status?.model || 'gemini/gemini-1.5-flash'}
+                            onChange={(e) => handleModelChange(e.target.value)}
+                            className="bg-vscode-activity border border-white/10 rounded px-2 py-0.5 text-[11px] font-bold text-[#64ffda] outline-none cursor-pointer hover:border-vscode-accent transition-colors appearance-none"
+                          >
+                            {availableModels.map(m => (
+                              <option key={m.id} value={m.id} className="bg-[#051c24] text-white">
+                                {m.id.split('/').pop().toUpperCase()}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button onClick={() => fileInputRef.current.click()} className="p-1.5 text-gray-500 hover:text-white transition-colors" title="Dodaj fajlove">
+                          <Paperclip size={16} />
+                        </button>
+                        <button
+                          onClick={handleCopyChat}
+                          className="p-1.5 text-gray-500 hover:text-white transition-colors"
+                          title="Kopiraj razgovor"
+                        >
+                          <Copy size={16} />
+                        </button>
+                        <button
+                          onClick={() => setIsChatMaximized(!isChatMaximized)}
+                          className="p-1.5 text-gray-500 hover:text-white transition-colors"
+                          title={isChatMaximized ? "Smanji" : "Proširi"}
+                        >
+                          {isChatMaximized ? <ChevronRight size={16} /> : <Plus size={16} />}
+                        </button>
+                        <button className="p-1.5 text-gray-500 hover:text-white transition-colors" title="Glasovni unos">
+                          <Mic size={16} />
+                        </button>
+                        <button
+                          onClick={() => { if (!loading) handleSendMessage() }}
+                          className={`ml-1 flex items-center justify-center w-8 h-8 rounded-lg bg-vscode-accent text-vscode-bg font-bold hover:brightness-110 transition-all active:scale-95 shadow-lg shadow-vscode-accent/20`}
+                        >
+                          {loading ? <Square size={14} fill="currentColor" className="animate-pulse" /> : <ChevronRight size={18} />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

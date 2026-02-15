@@ -23,7 +23,10 @@ app = FastAPI(title="AI Factory API", version="3.0")
 ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
 ]
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -102,6 +105,8 @@ async def get_models():
         "models": [
             {"id": "gemini/gemini-3-flash-preview", "name": "Gemini 3 Flash (Fast & Cheap)"},
             {"id": "gemini/gemini-3-pro-high-preview", "name": "Gemini 3 Pro High (Ultra Powerful)"},
+            {"id": "qwen/qwen-2.5-72b-instruct", "name": "Qwen 2.5 72B (Powerful & Open)"},
+            {"id": "deepseek/deepseek-chat", "name": "DeepSeek V3 (Coding Specialist)"},
             {"id": "gpt-4o-mini", "name": "GPT-4o Mini"},
             {"id": "claude-3-5-sonnet-20241022", "name": "Claude 3.5 Sonnet"}
         ]
@@ -169,16 +174,68 @@ async def remove_project_dir(path: str):
 async def pick_dir():
     import subprocess
     import sys
+    import platform
+    
     try:
-        cmd = [sys.executable, '-c', "import tkinter as tk; from tkinter import filedialog; root = tk.Tk(); root.withdraw(); root.wm_attributes('-topmost', 1); print(filedialog.askdirectory());"]
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        print("[pick-dir] Pokušavam da otvorim dijalog za izbor foldera...")
+        
+        if platform.system() == "Windows":
+            # SR: Windows native folder picker koristeći PowerShell
+            # Ovo je mnogo pouzdanije od tkinter-a na Windows-u
+            powershell_script = """
+Add-Type -AssemblyName System.Windows.Forms
+$folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
+$folderBrowser.Description = 'Izaberite folder projekta'
+$folderBrowser.RootFolder = 'MyComputer'
+$folderBrowser.ShowNewFolderButton = $true
+
+$result = $folderBrowser.ShowDialog()
+if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+    Write-Output $folderBrowser.SelectedPath
+} else {
+    Write-Output ''
+}
+"""
+            
+            print("[pick-dir] Koristim Windows native PowerShell dijalog...")
+            res = subprocess.run(
+                ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", powershell_script],
+                capture_output=True,
+                text=True,
+                timeout=120
+            )
+        else:
+            # Linux/Mac verzija sa tkinter
+            print("[pick-dir] Koristim tkinter dijalog...")
+            cmd = [
+                sys.executable, '-c',
+                "import tkinter as tk; from tkinter import filedialog; root = tk.Tk(); root.withdraw(); root.wm_attributes('-topmost', 1); print(filedialog.askdirectory());"
+            ]
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        
+        # Loguj stderr ako postoji
+        if res.stderr:
+            print(f"[pick-dir] STDERR: {res.stderr}")
+        
         path = res.stdout.strip()
+        print(f"[pick-dir] Rezultat: '{path}'")
         
         if path:
+            print(f"[pick-dir] Folder izabran: {path}")
             return await set_project_dir(path)
-        return {"success": False, "message": "Otkazano"}
+        else:
+            print("[pick-dir] Korisnik je otkazao izbor")
+            return {"success": False, "message": "Izbor foldera otkazan"}
+            
+    except subprocess.TimeoutExpired:
+        print("[pick-dir] Timeout - dijalog nije zatvoren na vreme")
+        return {"success": False, "detail": "Dijalog timeout - molimo pokušajte ponovo"}
     except Exception as e:
+        print(f"[pick-dir] Greška: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return {"success": False, "detail": str(e)}
+
 
 @app.get("/pick-additional-dir", dependencies=[Depends(get_api_key)])
 async def pick_additional_dir():

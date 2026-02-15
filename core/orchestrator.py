@@ -110,7 +110,29 @@ class SecureOrchestrator:
                     system_prompt += "\nAnaliziraj ceo projekat na osnovu priložene strukture i fajlova. Daj arhitektonski pregled ili odgovori na opšta pitanja o codebase-u."
                 
                 system_prompt += "\nVAŽNO: Na kraju svakog odgovora koji sadrži predloge ili analizu, obavezno navedi 'SUMARNA LISTA ZADATAKA' sa stavkama (To-Do) šta treba uraditi dalje."
-                system_prompt += "\n\nDOSTUPNI ALATI:\n- Instalacija paketa: '/install/python' ili '/install/node'.\n- Git Operacije: '/git/status', '/git/init', '/git/commit', '/git/push'.\n- Supabase: '/supabase/connect', '/supabase/tables'.\n- Primer: 'Za čuvanje promena, preporučujem commit: POST /git/commit {\"message\": \"feat: new feature\"}'"
+                system_prompt += """
+\n\nDOSTUPNI ALATI (AUTOMATSKO IZVRŠAVANJE):
+Ako korisnik zatraži akciju (npr. "uradi push", "instaliraj ovo"), koristi sledeći XML format na kraju odgovora da bi je izvršio:
+
+<tool_code>
+{
+  "name": "tool_name",
+  "args": { "arg1": "value" }
+}
+</tool_code>
+
+Podržani alati:
+- git_status (args: {})
+- git_init (args: {})
+- git_commit (args: {"message": "..."})
+- git_push (args: {"remote": "origin", "branch": "main"})
+- supabase_connect (args: {"url": "...", "key": "..."})
+- supabase_tables (args: {})
+- npm_install (args: {"name": "PkgName", "dev": boolean})
+- pip_install (args: {"name": "PkgName"})
+
+Primer: <tool_code>{"name": "git_push", "args": {"remote": "origin", "branch": "main"}}</tool_code>
+"""
 
                 messages = [{"role": "system", "content": system_prompt}]
                 messages.append({"role": "user", "content": user_content})
@@ -150,6 +172,44 @@ class SecureOrchestrator:
                                  "filename": filename if not is_global else "generated_suggestion.py",
                                  "explanation": full_content_accumulator.replace(code_match.group(0), "").strip()
                              })
+
+                # Provera Tool call-a
+                if "<tool_code>" in full_content_accumulator:
+                    tool_match = re.search(r"<tool_code>\s*({.*?})\s*</tool_code>", full_content_accumulator, re.DOTALL)
+                    if tool_match:
+                        try:
+                            tool_json = json.loads(tool_match.group(1))
+                            tool_name = tool_json.get("name")
+                            tool_args = tool_json.get("args", {})
+                            
+                            # Obavesti korisnika da se izvršava
+                            await queue.put({
+                                "type": "chunk",
+                                "agent_id": agent.id,
+                                "agent_name": "System",
+                                "agent_color": "gray",
+                                "content": f"\n\n> ⚙️ **Izvršavam akciju:** `{tool_name}`...\n"
+                            })
+                            
+                            # Izvrši akciju
+                            result = self._execute_tool_action(tool_name, tool_args)
+                            
+                            await queue.put({
+                                "type": "chunk",
+                                "agent_id": agent.id,
+                                "agent_name": "System",
+                                "agent_color": "gray",
+                                "content": f"> ✅ **Rezultat:** {result}\n"
+                            })
+                            
+                        except Exception as e:
+                            await queue.put({
+                                "type": "chunk",
+                                "agent_id": agent.id,
+                                "agent_name": "System",
+                                "agent_color": "red",
+                                "content": f"\n> ❌ **Greška pri izvršavanju alata:** {str(e)}\n"
+                            })
 
             except Exception as e:
                 print(f"Agent {agent.name} error: {e}")
@@ -239,11 +299,6 @@ class SecureOrchestrator:
                 print(f"[Orchestrator] ✗ {result['message']}")
                 continue
             
-            if not generated_code:
-                result['success'] = True
-                result['message'] = explanation
-                return result
-
             is_safe, threats = self.sentinel.scan_code(generated_code)
             result['threats'] = threats
             

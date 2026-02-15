@@ -1,44 +1,46 @@
 @import "tailwindcss";
 
 :root {
-  /* MODERN NAVY & PEARL THEME */
-  --color-vscode-bg: #0a192f;
-  /* Deepest Navy */
-  --color-vscode-sidebar: #112240;
-  /* Navy Sidebar */
-  --color-vscode-editor: #0a192f;
-  /* Deepest Navy Editor */
-  --color-vscode-activity: #020c1b;
-  /* Darkest Navy */
+  /* PREMIUM DARK PETROL THEME */
+  --color-vscode-bg: #051c24;
+  /* Darkest Petrol BG */
+  --color-vscode-sidebar: #0a2e38;
+  /* Petrol Sidebar */
+  --color-vscode-editor: #051c24;
+  /* Darkest Petrol Editor */
+  --color-vscode-activity: #03141a;
+  /* Deep Dark Activity Bar */
   --color-vscode-text: #ffffff;
   /* Pure White Text */
-  --color-vscode-border: #233554;
-  /* Lighter Navy Border */
+  --color-vscode-border: #144a56;
+  /* Petrol Teal Border */
   --color-vscode-accent: #64ffda;
-  /* Cyan/Teal Mint (Secondary) */
-  --color-vscode-input: #112240;
-  /* Navy Input */
-  --color-vscode-sidebar-header: #0d1b2e;
+  /* Mint Teal Accent */
+  --color-vscode-input: #0d3844;
+  /* Petrol Input */
+  --color-vscode-sidebar-header: #07252f;
 
   /* Specijalne boje za Chat i Akcije */
-  --color-chat-module-bg: #cfd8dc;
-  /* Darker Silver Pearl */
-  --color-chat-text: #0a192f;
-  /* Navy Text */
-  --color-action-btn: #006d77;
-  /* Petroleum (Deep Teal) */
-  --color-important-text: #8b0000;
-  /* Dark Red for Important Info */
+  --color-chat-module-bg: #e0f2f1;
+  /* Light Mint Pearl for Chat */
+  --color-chat-text: #051c24;
+  /* Dark Petrol Text */
+  --color-action-btn: #00897b;
+  /* Medium Teal */
+  --color-important-text: #ff5252;
+  /* Bright Red for Visibility */
 
   color-scheme: dark;
 }
+
 
 body {
   margin: 0;
   overflow: hidden;
   background-color: var(--color-vscode-bg);
   color: var(--color-vscode-text);
-  font-size: 14px;
+  font-size: 17px;
+  /* SR: Increased from 14px (+20%) */
 }
 
 /* Custom Scrollbar */
