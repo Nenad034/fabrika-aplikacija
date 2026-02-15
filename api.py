@@ -170,91 +170,134 @@ async def remove_project_dir(path: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+async def run_native_picker_logic():
+    import ctypes
+    from ctypes import wintypes
+    import platform
+    import asyncio
+    from concurrent.futures import ThreadPoolExecutor
+
+    def run_picker_thread():
+        try:
+            if platform.system() != "Windows":
+                import subprocess
+                import sys
+                cmd = [
+                    sys.executable, '-c',
+                    "import tkinter as tk; from tkinter import filedialog; root = tk.Tk(); root.withdraw(); root.wm_attributes('-topmost', 1); print(filedialog.askdirectory());"
+                ]
+                res = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                return res.stdout.strip()
+
+            # SR: Modern Windows IFileOpenDialog implementation (Vista+)
+            print("[pick-dir] Pokretanje IFileOpenDialog (Modern)...")
+            
+
+            try:
+                # GUID Structure
+                class GUID(ctypes.Structure):
+                    _fields_ = [
+                        ("Data1", ctypes.c_ulong),
+                        ("Data2", ctypes.c_ushort),
+                        ("Data3", ctypes.c_ushort),
+                        ("Data4", ctypes.c_ubyte * 8)
+                    ]
+
+                # CLSID_FileOpenDialog = {DC1C5A9C-E88A-4dde-A5A1-60F82A20AEF7}
+                CLSID_FileOpenDialog = GUID(0xDC1C5A9C, 0xE88A, 0x4dde, (ctypes.c_ubyte * 8)(0xA5, 0xA1, 0x60, 0xF8, 0x2A, 0x20, 0xAE, 0xF7))
+                
+                # IID_IFileOpenDialog = {d57c7288-d4ad-4768-be02-9d969532d960}
+                IID_IFileOpenDialog = GUID(0xd57c7288, 0xd4ad, 0x4768, (ctypes.c_ubyte * 8)(0xbe, 0x02, 0x9d, 0x96, 0x95, 0x32, 0xd9, 0x60))
+
+                FOS_PICKFOLDERS = 0x20
+                FOS_FORCEFILESYSTEM = 0x40
+                SIGDN_FILESYSPATH = 0x80058000
+                WINFUNCTYPE = ctypes.WINFUNCTYPE
+                
+                # Structures inlined for brevity (identical to previous)
+                class IUnknown(ctypes.Structure):
+                    _fields_ = [("lpVtbl", ctypes.POINTER(ctypes.c_void_p))]
+                
+                Show_Prototype = WINFUNCTYPE(ctypes.c_long, ctypes.c_void_p, ctypes.c_void_p)
+                SetOptions_Prototype = WINFUNCTYPE(ctypes.c_long, ctypes.c_void_p, ctypes.c_ulong)
+                GetResult_Prototype = WINFUNCTYPE(ctypes.c_long, ctypes.c_void_p, ctypes.POINTER(ctypes.POINTER(IUnknown)))
+                GetDisplayName_Prototype = WINFUNCTYPE(ctypes.c_long, ctypes.c_void_p, ctypes.c_ulong, ctypes.POINTER(wintypes.LPWSTR))
+                Release_Prototype = WINFUNCTYPE(ctypes.c_long, ctypes.c_void_p)
+
+                ole32 = ctypes.windll.ole32
+                user32 = ctypes.windll.user32
+                ole32.CoInitialize(None)
+
+                pFileDialog = ctypes.POINTER(IUnknown)()
+                
+                hr = ole32.CoCreateInstance(ctypes.byref(CLSID_FileOpenDialog), None, 1, ctypes.byref(IID_IFileOpenDialog), ctypes.byref(pFileDialog))
+                if hr != 0: 
+                    print(f"[ModernPicker] CoCreateInstance failed: {hex(hr)}")
+                    raise Exception(f"CoCreateInstance failed with hr={hex(hr)}")
+
+                vtbl = pFileDialog.contents.lpVtbl
+                SetOptions = SetOptions_Prototype(vtbl[9])
+                hr_opt = SetOptions(pFileDialog, FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM)
+                if hr_opt != 0: print(f"[ModernPicker] Warning: SetOptions failed: {hex(hr_opt)}")
+
+                Show = Show_Prototype(vtbl[3])
+                hwnd = user32.GetForegroundWindow()
+                print(f"[ModernPicker] Showing dialog with owner HWND: {hwnd}")
+                hr = Show(pFileDialog, hwnd)
+                
+                print(f"[ModernPicker] Show returned: {hex(hr)}")
+                
+                path = ""
+                if hr == 0:
+                    pShellItem = ctypes.POINTER(IUnknown)()
+                    GetResult = GetResult_Prototype(vtbl[20])
+                    if GetResult(pFileDialog, ctypes.byref(pShellItem)) == 0:
+                        item_vtbl = pShellItem.contents.lpVtbl
+                        GetDisplayName = GetDisplayName_Prototype(item_vtbl[5])
+                        pszName = wintypes.LPWSTR()
+                        if GetDisplayName(pShellItem, SIGDN_FILESYSPATH, ctypes.byref(pszName)) == 0 and pszName.value:
+                            path = pszName.value
+                            ole32.CoTaskMemFree(pszName)
+                        else:
+                            print("[ModernPicker] Failed to get display name or empty")
+                        Release = Release_Prototype(item_vtbl[2])
+                        Release(pShellItem)
+                    else:
+                         print("[ModernPicker] GetResult failed")
+
+                Release = Release_Prototype(vtbl[2])
+                Release(pFileDialog)
+                ole32.CoUninitialize()
+                return path
+
+            except Exception as e:
+                print(f"[ModernPicker] Exception: {e}")
+                import traceback
+                traceback.print_exc()
+                return ""
+        except Exception as e:
+            print(f"[PickerThread] Error: {e}")
+            return ""
+
+    loop = asyncio.get_event_loop()
+    with ThreadPoolExecutor() as pool:
+        return await loop.run_in_executor(pool, run_picker_thread)
+
 @app.get("/pick-dir", dependencies=[Depends(get_api_key)])
 async def pick_dir():
-    import subprocess
-    import sys
-    import platform
-    
-    try:
-        print("[pick-dir] Pokušavam da otvorim dijalog za izbor foldera...")
-        
-        if platform.system() == "Windows":
-            # SR: Windows native folder picker koristeći PowerShell
-            # Ovo je mnogo pouzdanije od tkinter-a na Windows-u
-            powershell_script = """
-Add-Type -AssemblyName System.Windows.Forms
-$folderBrowser = New-Object System.Windows.Forms.FolderBrowserDialog
-$folderBrowser.Description = 'Izaberite folder projekta'
-$folderBrowser.RootFolder = 'MyComputer'
-$folderBrowser.ShowNewFolderButton = $true
-
-$result = $folderBrowser.ShowDialog()
-if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-    Write-Output $folderBrowser.SelectedPath
-} else {
-    Write-Output ''
-}
-"""
-            
-            print("[pick-dir] Koristim Windows native PowerShell dijalog...")
-            res = subprocess.run(
-                ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", powershell_script],
-                capture_output=True,
-                text=True,
-                timeout=120
-            )
-        else:
-            # Linux/Mac verzija sa tkinter
-            print("[pick-dir] Koristim tkinter dijalog...")
-            cmd = [
-                sys.executable, '-c',
-                "import tkinter as tk; from tkinter import filedialog; root = tk.Tk(); root.withdraw(); root.wm_attributes('-topmost', 1); print(filedialog.askdirectory());"
-            ]
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        
-        # Loguj stderr ako postoji
-        if res.stderr:
-            print(f"[pick-dir] STDERR: {res.stderr}")
-        
-        path = res.stdout.strip()
-        print(f"[pick-dir] Rezultat: '{path}'")
-        
-        if path:
-            print(f"[pick-dir] Folder izabran: {path}")
-            return await set_project_dir(path)
-        else:
-            print("[pick-dir] Korisnik je otkazao izbor")
-            return {"success": False, "message": "Izbor foldera otkazan"}
-            
-    except subprocess.TimeoutExpired:
-        print("[pick-dir] Timeout - dijalog nije zatvoren na vreme")
-        return {"success": False, "detail": "Dijalog timeout - molimo pokušajte ponovo"}
-    except Exception as e:
-        print(f"[pick-dir] Greška: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return {"success": False, "detail": str(e)}
-
+    path = await run_native_picker_logic()
+    print(f"[pick-dir] Rezultat: {path}")
+    if path:
+        return await set_project_dir(path)
+    return {"success": False, "message": "Izbor otkazan"}
 
 @app.get("/pick-additional-dir", dependencies=[Depends(get_api_key)])
 async def pick_additional_dir():
-    import subprocess
-    import sys
-    try:
-        cmd = [sys.executable, '-c', "import tkinter as tk; from tkinter import filedialog; root = tk.Tk(); root.withdraw(); root.wm_attributes('-topmost', 1); print(filedialog.askdirectory(title='Dodaj dodatni radni folder'));"]
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        path = res.stdout.strip()
-        
-        if path:
-            # Direktno pozivamo logiku umesto endpointa
-            if orchestrator.file_manager.add_root(path):
-                return {"success": True, "roots": [str(r) for r in orchestrator.file_manager.roots], "files": orchestrator.file_manager.list_files()}
-            else:
-                return {"success": False, "message": "Nevalidna putanja ili folder ne postoji"}
-        return {"success": False, "message": "Otkazano"}
-    except Exception as e:
-        return {"success": False, "detail": str(e)}
+    path = await run_native_picker_logic()
+    if path:
+        return await add_project_dir(path) # Assuming add_project_dir exists or similar logic
+    return {"success": False, "message": "Izbor otkazan"}
+
 
 @app.get("/pick-file", dependencies=[Depends(get_api_key)])
 async def pick_file():

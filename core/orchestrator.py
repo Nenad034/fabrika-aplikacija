@@ -403,5 +403,36 @@ INSTRUKCIJE ZA PREPRAVKU:
 3. Generiši ISPRAVAN i BEZBEDAN kod.
 """
     
+    def _execute_tool_action(self, tool_name: str, args: Dict[str, Any]) -> str:
+        """
+        Izvršava specifičan alat na osnovu imena i argumenata.
+        """
+        print(f"[Orchestrator] Executing tool: {tool_name} with args: {args}")
+        
+        try:
+            if tool_name == "git_status":
+                return str(self.git_manager.status())
+            elif tool_name == "git_init":
+                return str(self.git_manager.init())
+            elif tool_name == "git_commit":
+                return str(self.git_manager.commit(args.get("message", "Auto-commit")))
+            elif tool_name == "git_push":
+                return str(self.git_manager.push(args.get("remote", "origin"), args.get("branch", "main")))
+            
+            elif tool_name == "npm_install":
+                return str(self.package_manager.install_node(args.get("name"), args.get("dev", False)))
+            elif tool_name == "pip_install":
+                return str(self.package_manager.install_python(args.get("name")))
+                
+            elif tool_name == "supabase_connect":
+                return str(self.supabase_manager.connect(args.get("url"), args.get("key")))
+            elif tool_name == "supabase_tables":
+                return str(self.supabase_manager.get_tables())
+            
+            else:
+                return f"Nepoznat alat: {tool_name}"
+        except Exception as e:
+            return f"Greška pri izvršavanju alata {tool_name}: {str(e)}"
+
     def get_token_usage(self) -> int:
         return self.total_tokens_used

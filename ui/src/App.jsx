@@ -31,15 +31,17 @@ import {
   Mic,
   PlusSquare,
   Square,
+  Folder,
   ChevronDown,
   Copy, // SR: Added for Copy Chat
   Package, // SR: Added for Package Manager
   Link, // SR: Added for Integration Manager
-  Database // SR: Added for Supabase
+  Database, // SR: Added for Supabase
+  MessageSquarePlus // SR: Added for New Chat
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = `${window.location.protocol}//${window.location.hostname}:8000`;
 const API_TOKEN = 'e74faf31-9dcc-4524-acad-6bbfd374ba38'; // SR: Match with .env
 
 // SR: Configure Axios with Global Interceptor for API Token
@@ -50,10 +52,105 @@ axios.interceptors.request.use(config => {
   return config;
 }, error => Promise.reject(error));
 
+// SR: Login Screen Component
+const LoginScreen = ({ onLogin }) => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (username === 'nenad' && password === 'nenad') {
+      onLogin();
+    } else {
+      setError('Pogrešni podaci. Pokušajte ponovo.');
+    }
+  };
+
+  return (
+    <div className="flex h-screen items-center justify-center bg-[#051c24] text-white font-sans">
+      <div className="w-full max-w-sm p-8 bg-[#0a2e38] rounded-xl shadow-2xl border border-[#144a56]">
+        <div className="text-center mb-8">
+          <div className="inline-flex p-3 rounded-full bg-[#64ffda]/10 mb-4">
+            <Shield size={32} className="text-[#64ffda]" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-wider text-white uppercase">AppFactory</h1>
+          <p className="text-gray-400 text-sm mt-2">Bezbednosna Prijava</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-[#64ffda] uppercase mb-1">Korisničko Ime</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full bg-[#051c24] border border-[#144a56] rounded p-2 text-white focus:border-[#64ffda] focus:outline-none transition-colors"
+              placeholder="Unesite korisničko ime"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-[#64ffda] uppercase mb-1">Lozinka</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-[#051c24] border border-[#144a56] rounded p-2 text-white focus:border-[#64ffda] focus:outline-none transition-colors"
+              placeholder="Unesite lozinku"
+            />
+          </div>
+
+          {error && (
+            <div className="p-2 bg-red-500/20 border border-red-500/30 rounded text-red-200 text-xs text-center">
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            className="w-full py-2 bg-[#64ffda] hover:bg-[#00bfa5] text-[#051c24] font-bold rounded transition-colors uppercase tracking-wide mt-4"
+          >
+            Prijavi se
+          </button>
+        </form>
+
+        <div className="mt-6 text-center text-gray-500 text-[10px] uppercase">
+          AppFactory System v3.0 [v2]
+        </div>
+      </div>
+    </div>
+  );
+};
+
 function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false); // SR: Auth state
+  const [theme, setTheme] = useState('dark'); // 'dark' | 'navy' | 'tokyo-light'
   const [files, setFiles] = useState([]);
   const [openFiles, setOpenFiles] = useState([]); // [{path, content, isDirty}]
   const [activeFile, setActiveFile] = useState(null); // Trenutno aktivna putanja
+
+  // SR: Sync theme class with body for global override
+  useEffect(() => {
+    // Remove all possible theme classes first
+    document.body.classList.remove('theme-dark', 'theme-navy', 'theme-tokyo-light');
+    // Add current theme class
+    const themeClass = `theme-${theme}`;
+    document.body.classList.add(themeClass);
+    document.body.className = themeClass; // Force reset other classes
+
+    // Clear inline styles to let CSS classes take control
+    document.body.style.backgroundColor = '';
+    document.body.style.color = '';
+  }, [theme]);
+
+  const handleThemeToggle = () => {
+    setTheme(prev => {
+      if (prev === 'dark') return 'navy';
+      if (prev === 'navy') return 'tokyo-light'; // Keeps internal name for compatibility
+      return 'dark';
+    });
+  };
   const [fileContent, setFileContent] = useState(''); // Samo za Editor, sinhronizovano
   const [status, setStatus] = useState(null);
   const [logs, setLogs] = useState([]);
@@ -162,7 +259,7 @@ function App() {
 
   // Resizing state
   const [leftWidth, setLeftWidth] = useState(260);
-  const [rightWidth, setRightWidth] = useState(512);
+  const [rightWidth, setRightWidth] = useState(window.innerWidth * 0.5); // SR: 50% width by default
   const [bottomHeight, setBottomHeight] = useState(450);
 
   const [isResizingLeft, setIsResizingLeft] = useState(false);
@@ -201,25 +298,49 @@ function App() {
   };
 
   const handleEditorWillMount = (monaco) => {
-    // SR: Definicija PETROL Teme za Editor (usklađeno sa novim Petrolej dizajnom)
+    // SR: Definicija PETROL Teme za Editor
     monaco.editor.defineTheme('petrol-theme', {
       base: 'vs-dark',
       inherit: true,
       rules: [
-        { token: '', foreground: 'ffffff', background: '051c24' }, // Petrol BG, White Text
-        { token: 'comment', foreground: '144a56', fontStyle: 'italic' }, // Tealish Comment
-        { token: 'keyword', foreground: '64ffda' }, // Mint Teal
-        { token: 'string', foreground: 'a8d0db' }, // Light Blue
-        { token: 'number', foreground: 'ff5252' }, // Red accent
+        { token: '', foreground: 'ffffff', background: '051c24' },
+        { token: 'comment', foreground: '144a56', fontStyle: 'italic' },
+        { token: 'keyword', foreground: '64ffda' },
+        { token: 'string', foreground: 'a8d0db' },
+        { token: 'number', foreground: 'ff5252' },
       ],
       colors: {
         'editor.background': '#051c24',
         'editor.foreground': '#ffffff',
         'editorLineNumber.foreground': '#144a56',
         'editor.selectionBackground': '#144a5680',
-        'editorCursor.foreground': '#64ffda', // Cyan kursor
+        'editorCursor.foreground': '#64ffda',
       }
     });
+
+    // SR: Definicija NAVY Teme za Editor (usklađeno sa Navy dizajnom #0a192f)
+    monaco.editor.defineTheme('navy-theme', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { token: '', foreground: 'ccd6f6', background: '0a192f' },
+        { token: 'keyword', foreground: '64ffda' },
+        { token: 'string', foreground: '8892b0' },
+      ],
+      colors: {
+        'editor.background': '#0a192f',
+        'editor.foreground': '#ccd6f6',
+        'editorLineNumber.foreground': '#233554',
+        'editor.selectionBackground': '#23355480',
+        'editorCursor.foreground': '#64ffda',
+      }
+    });
+  };
+
+  const editorRef = useRef(null);
+
+  const handleEditorDidMount = (editor, monaco) => {
+    editorRef.current = editor;
   };
 
   const chatEndRef = useRef(null);
@@ -410,9 +531,10 @@ function App() {
         addLog(`⚠ ${message}`, "warning");
       }
     } catch (err) {
-      console.error("Browse error:", err);
+      console.error("Browse error details:", err);
       const errorMsg = err.response?.data?.detail || err.message || "Greška pri otvaranju foldera";
-      addLog(`✗ ${errorMsg}`, "error");
+      addLog(`✗ Greška: ${errorMsg}`, "error");
+      if (err.response) addLog(`Status koda: ${err.response.status}`, "error");
     }
   };
 
@@ -937,6 +1059,19 @@ function App() {
     addLog(`Izmene odbačene`, 'info');
   };
 
+  const handleNewChat = () => {
+    if (confirm('Da li ste sigurni da želite da započnete novu konverzaciju? Prethodna istorija će biti obrisana.')) {
+      if (activeFile) {
+        setOpenFiles(prev => prev.map(f =>
+          f.path === activeFile ? { ...f, messages: [] } : f
+        ));
+      } else {
+        setGlobalMessages([]);
+      }
+      addLog('Započeta nova konverzacija', 'info');
+    }
+  };
+
   const handleSendMessage = () => {
     if (!aiPrompt.trim() && attachments.length === 0) return;
     const userMsg = {
@@ -1022,13 +1157,18 @@ function App() {
     setAttachments(prev => prev.filter(a => a.id !== id));
   };
 
+  if (!isLoggedIn) {
+    return <LoginScreen onLogin={() => setIsLoggedIn(true)} />;
+  }
+
   return (
-    <div className={`flex h-screen bg-vscode-bg text-vscode-text font-sans overflow-hidden theme-dark`}>
+    <div className={`flex h-screen bg-vscode-bg text-vscode-text font-sans overflow-hidden theme-${theme}`}>
       {/* Activity Bar */}
       <div className="w-12 bg-vscode-activity flex flex-col items-center py-4 space-y-4 border-r border-vscode-border z-20 shrink-0">
         <div
+          onClick={handleThemeToggle}
           className="p-2 cursor-pointer text-vscode-accent hover:text-white transition-transform active:scale-95"
-          title="Promeni temu (Dark / Navy / Tokyo Night)"
+          title="Promeni temu (v2)"
         >
           <Activity size={24} />
         </div>
@@ -1112,29 +1252,45 @@ function App() {
                 }}
               >
                 <span>{leftSidebarMode === 'explorer' ? 'Explorer' : leftSidebarMode === 'agents' ? 'Agenti' : 'Pretraga'}</span>
-                {leftSidebarMode === 'explorer' && <Plus className="cursor-pointer hover:text-white" size={17} onClick={handleBrowseFile} />}
               </div>
 
               {leftSidebarMode === 'explorer' ? (
                 <>
                   <div className="p-3 border-y border-white/5 space-y-2 bg-vscode-input/50">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[13px] text-gray-300 font-bold uppercase">Radni Folderi</span>
-                      <div className="flex gap-1">
-                        <button onClick={() => setChatLayout(prev => prev === 'bottom' ? 'sidebar' : 'bottom')} className={`p-1 hover:bg-white/10 rounded ${chatLayout === 'sidebar' ? 'text-vscode-accent' : 'text-gray-400'}`} title="Prebaci čat u Sidebar">
-                          <Bot size={14} />
-                        </button>
-                        <button onClick={handleBrowse} className="p-1 hover:bg-white/10 rounded text-vscode-accent" title="Izaberi folder projekta"><FolderOpen size={14} /></button>
-                      </div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[13px] text-gray-300 font-bold uppercase">Radni Folder</span>
+                      <button onClick={() => setChatLayout(prev => prev === 'bottom' ? 'sidebar' : 'bottom')} className={`p-1 hover:bg-white/10 rounded ${chatLayout === 'sidebar' ? 'text-vscode-accent' : 'text-gray-400'}`} title="Prebaci čat u Sidebar">
+                        <Bot size={14} />
+                      </button>
+                    </div>
+
+                    {/* Unified Path Input */}
+                    <div className="relative group">
+                      <input
+                        type="text"
+                        className="w-full bg-black/30 border border-white/10 rounded pl-2 pr-8 py-1.5 text-[12px] focus:outline-none focus:border-vscode-accent/50 text-vscode-text transition-all shadow-inner font-mono truncate"
+                        placeholder="Izaberi ili unesi putanju..."
+                        value={currentPath}
+                        onChange={(e) => setCurrentPath(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSetPath()}
+                        title={currentPath}
+                      />
+                      <button
+                        onClick={handleBrowse}
+                        className="absolute right-1 top-1/2 -translate-y-1/2 p-1 hover:bg-white/10 rounded text-vscode-accent hover:text-white transition-all active:scale-90"
+                        title="Otvori folder (Windows Dialog)"
+                      >
+                        <FolderOpen size={14} />
+                      </button>
                     </div>
 
 
-                    {roots.length > 0 ? (
-                      <div className="flex flex-col gap-1 max-h-[100px] overflow-y-auto custom-scrollbar">
+                    {roots.length > 0 && (
+                      <div className="flex flex-col gap-1 max-h-[120px] overflow-y-auto custom-scrollbar mt-2">
                         {roots.map((root, idx) => (
-                          <div key={idx} className="flex items-center gap-2 text-[13px] text-vscode-text bg-vscode-sidebar-header px-2 py-1 rounded border border-white/10 group relative" title={root}>
-                            <FolderOpen size={12} className="text-gray-300 shrink-0" />
-                            <span className="truncate flex-grow">{root.split(/[\\/]/).pop()}</span>
+                          <div key={idx} className="flex items-center gap-2 text-[13px] text-vscode-text bg-vscode-sidebar-header px-2 py-1 rounded border border-white/10 group relative hover:bg-vscode-list-hover" title={root}>
+                            <Folder size={12} className="text-gray-400 shrink-0" />
+                            <span className="truncate flex-grow cursor-pointer" onClick={() => setCurrentPath(root)}>{root.split(/[\\/]/).pop()}</span>
                             {/* Ne dozvoljavamo uklanjanje primarnog foldera (indeks 0) */}
                             {idx > 0 && (
                               <button
@@ -1148,15 +1304,8 @@ function App() {
                           </div>
                         ))}
                       </div>
-                    ) : (
-                      <input
-                        type="text"
-                        className="w-full bg-vscode-sidebar-header border border-white/10 rounded px-2 py-1 text-[14px] focus:outline-none focus:border-vscode-accent/50 text-vscode-text"
-                        value={currentPath}
-                        onChange={(e) => setCurrentPath(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSetPath()}
-                      />
                     )}
+
                   </div>
 
                   <div className="flex-grow overflow-y-auto custom-scrollbar">
@@ -1593,7 +1742,7 @@ function App() {
       </AnimatePresence>
 
       {/* Main Content (Editor + Output) */}
-      <div className="flex-grow flex flex-col min-w-0 bg-vscode-bg">
+      <div className="flex-grow flex flex-col min-w-0 bg-vscode-bg relative">
         {/* Tab Bar */}
         {openFiles.length > 0 && (
           <div className="flex bg-vscode-sidebar-header border-b border-vscode-border overflow-x-auto no-scrollbar shrink-0 h-9 items-center">
@@ -1605,10 +1754,10 @@ function App() {
                   key={file.path}
                   onClick={() => { setActiveFile(file.path); setFileContent(file.content); }}
                   className={`flex items-center gap-2 px-3 h-full cursor-pointer text-[14px] border-r border-vscode-border min-w-[120px] max-w-[200px] transition-colors relative group
-                    ${isActive ? 'bg-vscode-bg text-blue-400 border-t-2 border-vscode-accent' : 'bg-[#2d2d2d]/30 text-gray-300 hover:bg-white/5 hover:text-gray-300'}
+                    ${isActive ? 'bg-vscode-bg text-vscode-accent border-t-2 border-vscode-accent' : 'bg-vscode-sidebar/50 text-gray-400 hover:bg-white/5 hover:text-gray-300'}
                   `}
                 >
-                  <FileCode size={14} className={isActive ? 'text-blue-400' : 'text-gray-300'} />
+                  <FileCode size={14} className={isActive ? 'text-vscode-accent' : 'text-gray-300'} />
                   <span className="truncate flex-grow">{fileName}{file.isDirty ? '*' : ''}</span>
                   <button
                     onClick={(e) => handleCloseTab(e, file.path)}
@@ -1643,8 +1792,19 @@ function App() {
         <div className="flex-grow relative overflow-hidden">
           <Editor
             height="100%"
-            defaultLanguage="python"
-            theme="petrol-theme"
+            defaultLanguage="javascript"
+            language={activeFile ? (
+              activeFile.endsWith('.py') ? 'python' :
+                activeFile.endsWith('.js') || activeFile.endsWith('.jsx') ? 'javascript' :
+                  activeFile.endsWith('.ts') || activeFile.endsWith('.tsx') ? 'typescript' :
+                    activeFile.endsWith('.css') ? 'css' :
+                      activeFile.endsWith('.json') ? 'json' :
+                        activeFile.endsWith('.html') ? 'html' : 'markdown'
+            ) : 'markdown'}
+            theme={theme === 'tokyo-light' ? 'light' : theme === 'navy' ? 'navy-theme' : 'petrol-theme'}
+
+            key={theme} // Force re-render on theme change
+            onMount={handleEditorDidMount} // Ensure this handler exists or remove if not defined
             beforeMount={handleEditorWillMount}
             value={fileContent}
             onChange={handleEditorChange}
@@ -1659,7 +1819,7 @@ function App() {
         />
 
         {/* Output Panel */}
-        <div style={{ height: isChatMaximized ? 'calc(100vh - 80px)' : bottomHeight }} className={`bg-vscode-sidebar border-t border-vscode-border flex flex-col shrink-0 min-h-[40px] transition-all duration-300 ${isChatMaximized ? 'fixed bottom-0 left-0 right-0 z-[100]' : ''}`}>
+        <div style={{ height: isChatMaximized ? '100%' : bottomHeight }} className={`bg-vscode-sidebar border-t border-vscode-border flex flex-col shrink-0 min-h-[40px] transition-all duration-300 ${isChatMaximized ? 'absolute inset-0 z-[100]' : ''}`}>
           {/* SR: Header Bar (Cursor Style) */}
           <div className="flex px-4 items-center justify-between shrink-0 h-10 border-b border-vscode-border bg-vscode-activity">
             <div className="flex items-center gap-3 text-[13px] text-gray-400">
@@ -1696,19 +1856,13 @@ function App() {
               <div className="flex-grow overflow-y-auto custom-scrollbar p-4 space-y-4 bg-vscode-bg">
                 {(activeFile ? (openFiles.find(f => f.path === activeFile)?.messages || []) : globalMessages).map(msg => (
                   <div key={msg.id} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[85%] p-4 rounded-xl text-[18px] leading-relaxed shadow-lg overflow-hidden border ${msg.type === 'user'
-                      ? 'bg-[#006d77] text-white rounded-tr-none border-[#004d40]' // Petroleum User Msg
-                      : 'bg-[#0a192f] border-[#233554] text-white rounded-tl-none' // Dark Petrol AI Msg (Matches Input)
-                      }`}>
+                    <div className={`max-w-[85%] p-4 rounded-xl text-[18px] leading-relaxed shadow-lg overflow-hidden border msg-bubble ${msg.type === 'user' ? 'user-msg-bubble' : 'ai-msg-bubble'}`}>
                       {msg.type === 'ai' ? (
                         <div className="space-y-1.5 compact-markdown">
                           <ReactMarkdown
                             rehypePlugins={[rehypeHighlight]}
                             components={{
-                              p: ({ node, ...props }) => <p className="my-1" {...props} />,
-                              ul: ({ node, ...props }) => <ul className="list-disc pl-5 my-1" {...props} />,
-                              ol: ({ node, ...props }) => <ol className="list-decimal pl-5 my-1" {...props} />,
-                              li: ({ node, ...props }) => <li className="my-0.5" {...props} />,
+                              p: ({ node, ...props }) => <p className="p-msg" {...props} />,
                               code({ node, inline, className, children, ...props }) {
                                 return !inline ? (
                                   <div className="my-2 rounded-md overflow-hidden border border-gray-200 bg-gray-50">
@@ -1730,6 +1884,7 @@ function App() {
                               ol: ({ node, ...props }) => <ol className="list-decimal pl-5 my-2 space-y-1" {...props} />,
                               li: ({ node, ...props }) => <li className="pl-1" {...props} />
                             }}
+
                           >
                             {msg.text}
                           </ReactMarkdown>
@@ -1737,7 +1892,7 @@ function App() {
                           {/* SR: Model Badge */}
                           {msg.agentModel && (
                             <div className="mt-2 pt-2 border-t border-gray-100">
-                              <span className="inline-block bg-[#64ffda]/10 text-[#006d77] text-[11px] font-bold px-2 py-0.5 rounded uppercase tracking-wide">
+                              <span className="inline-block bg-vscode-accent/10 text-vscode-accent text-[11px] font-bold px-2 py-0.5 rounded uppercase tracking-wide">
                                 {msg.agentModel.replace('gemini/', '').replace('gpt-', 'GPT-').replace('claude-', 'Claude ')}
                               </span>
                             </div>
@@ -1782,7 +1937,7 @@ function App() {
 
               {/* SR: Modern Chat Input Area (Cursor Style) */}
               <div className="p-4 bg-vscode-sidebar border-t border-vscode-border shrink-0 flex flex-col gap-2 z-50">
-                <div className="relative bg-[#0a192f]/80 backdrop-blur-md border border-[#233554] rounded-xl shadow-2xl overflow-hidden group hover:border-[#64ffda]/30 transition-all focus-within:border-[#64ffda]/50">
+                <div className="relative bg-[#0a192f]/80 backdrop-blur-md border border-[#233554] rounded-xl shadow-2xl overflow-hidden group hover:border-vscode-accent/30 transition-all focus-within:border-vscode-accent/50">
                   {/* Attachment Previews */}
                   {attachments.length > 0 && (
                     <div className="flex flex-wrap gap-2 p-3 bg-white/5 border-b border-white/10 max-h-32 overflow-y-auto custom-scrollbar">
@@ -1791,7 +1946,7 @@ function App() {
                           {att.type === 'image' ? (
                             <img src={att.data} alt={att.name} className="w-8 h-8 rounded object-cover" />
                           ) : (
-                            <FileText size={16} className="text-[#64ffda]" />
+                            <FileText size={16} className="text-vscode-accent" />
                           )}
                           <span className="text-[12px] text-gray-300 truncate max-w-[100px]">{att.name}</span>
                           <button
@@ -1849,6 +2004,13 @@ function App() {
                       </button>
                       <div className="flex items-center gap-1">
                         <button
+                          onClick={handleNewChat}
+                          className="p-1.5 text-gray-500 hover:text-vscode-accent hover:bg-white/5 rounded transition-colors"
+                          title="Nova konverzacija"
+                        >
+                          <MessageSquarePlus size={16} />
+                        </button>
+                        <button
                           onClick={handleCopyChat}
                           className="p-1.5 text-gray-500 hover:text-vscode-accent hover:bg-white/5 rounded transition-colors"
                           title="Kopiraj ceo razgovor (Markdown)"
@@ -1868,7 +2030,7 @@ function App() {
                       </button>
                       <button
                         onClick={() => { if (!loading) handleSendMessage() }}
-                        className={`p-2 transition-all rounded-lg shadow-lg ${loading ? 'bg-red-500 text-white scale-110' : 'bg-[#64ffda] text-[#0a192f] hover:bg-[#a50000] hover:text-white active:scale-95'}`}
+                        className={`p-2 transition-all rounded-lg shadow-lg ${loading ? 'bg-red-500 text-white scale-110' : 'bg-vscode-accent text-vscode-bg hover:bg-vscode-accent/80 transition-colors active:scale-95'}`}
                         title={loading ? "Prekini generisanje" : "Pošalji (Enter)"}
                       >
                         {loading ? <Square size={16} fill="white" /> : <ChevronRight size={18} />}
@@ -1927,8 +2089,8 @@ function App() {
                 className="p-3 flex items-center justify-between border-b border-vscode-border bg-vscode-sidebar-header cursor-move select-none shrink-0"
               >
                 <div className="flex items-center gap-2">
-                  <TerminalIcon size={16} className="text-[#64ffda]" />
-                  <span className="text-[14px] font-bold uppercase tracking-widest text-[#64ffda]">Output Console</span>
+                  <TerminalIcon size={16} className="text-vscode-accent" />
+                  <span className="text-[14px] font-bold uppercase tracking-widest text-vscode-accent">Output Console</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <button onClick={() => setShowConsole(false)} className="hover:text-white text-gray-400">
@@ -1997,7 +2159,7 @@ function App() {
               transition={{ type: 'tween', duration: isResizingRight ? 0 : 0.3 }}
               className="bg-vscode-sidebar border-l border-vscode-border flex flex-col overflow-hidden relative shadow-2xl shrink-0"
             >
-              <div className="p-4 uppercase text-[14px] font-bold tracking-widest text-[#64ffda] flex justify-between items-center bg-vscode-sidebar-header border-b border-white/5 shadow-sm">
+              <div className="p-4 uppercase text-[14px] font-bold tracking-widest text-vscode-accent flex justify-between items-center bg-vscode-sidebar-header border-b border-white/5 shadow-sm">
                 <div className="flex items-center gap-2">
                   <Bot size={16} className="text-vscode-accent" />
                   <span>AI Chat Sidebar</span>
@@ -2015,13 +2177,38 @@ function App() {
                 <div className="flex-grow overflow-y-auto p-4 space-y-4 custom-scrollbar">
                   {(activeFile ? (openFiles.find(f => f.path === activeFile)?.messages || []) : globalMessages).map(msg => (
                     <div key={msg.id} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[90%] p-4 rounded-xl text-[17px] leading-relaxed shadow-lg border ${msg.type === 'user'
-                        ? 'bg-[#006d77] text-white rounded-tr-none border-[#004d40]'
-                        : 'bg-[#0a192f] border-[#233554] text-white rounded-tl-none'
-                        }`}>
+                      <div className={`max-w-[90%] p-4 rounded-xl text-[17px] leading-relaxed shadow-lg border msg-bubble ${msg.type === 'user' ? 'user-msg-bubble' : 'ai-msg-bubble'}`}>
                         {msg.type === 'ai' ? (
-                          <div className="compact-markdown overflow-hidden">
-                            <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{msg.text}</ReactMarkdown>
+                          <div className="w-full overflow-hidden">
+                            <div className="compact-markdown overflow-hidden">
+                              <ReactMarkdown rehypePlugins={[rehypeHighlight]}>{msg.text}</ReactMarkdown>
+                            </div>
+                            {msg.preview && (
+                              <div className="mt-3 bg-white border border-vscode-accent/50 rounded-lg overflow-hidden shadow-sm">
+                                <div className="bg-vscode-accent/10 px-3 py-2 border-b border-vscode-accent/20 flex items-center gap-2">
+                                  <AlertCircle size={14} className="text-vscode-accent" />
+                                  <span className="text-[13px] font-bold text-vscode-accent uppercase">Proposed Changes</span>
+                                  <span className="text-[12px] text-gray-500 ml-auto">{msg.preview.filename}</span>
+                                </div>
+                                <div className="p-3 bg-[#f8f9fa] max-h-60 overflow-y-auto custom-scrollbar border-b border-gray-100">
+                                  <pre className="text-[13px] font-mono text-[#0a192f] whitespace-pre-wrap">{msg.preview.code}</pre>
+                                </div>
+                                <div className="p-2 flex gap-2 bg-gray-50">
+                                  <button
+                                    onClick={() => handleApply(msg.id, msg.preview.filename, msg.preview.code)}
+                                    className="flex-1 bg-green-600 hover:bg-green-500 text-white text-[13px] font-bold py-1.5 rounded flex items-center justify-center gap-1 transition-colors"
+                                  >
+                                    <Check size={12} /> Apply
+                                  </button>
+                                  <button
+                                    onClick={() => handleDiscard(msg.id)}
+                                    className="flex-1 bg-red-600/80 hover:bg-red-500 text-white text-[13px] font-bold py-1.5 rounded flex items-center justify-center gap-1 transition-colors"
+                                  >
+                                    <X size={12} /> Discard
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         ) : (
                           msg.text
@@ -2096,6 +2283,13 @@ function App() {
                       <div className="flex items-center gap-1.5">
                         <button onClick={() => fileInputRef.current.click()} className="p-1.5 text-gray-500 hover:text-white transition-colors" title="Dodaj fajlove">
                           <Paperclip size={16} />
+                        </button>
+                        <button
+                          onClick={handleNewChat}
+                          className="p-1.5 text-gray-500 hover:text-white transition-colors"
+                          title="Nova konverzacija"
+                        >
+                          <MessageSquarePlus size={16} />
                         </button>
                         <button
                           onClick={handleCopyChat}
