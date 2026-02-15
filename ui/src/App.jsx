@@ -116,7 +116,7 @@ const LoginScreen = ({ onLogin }) => {
         </form>
 
         <div className="mt-6 text-center text-gray-500 text-[10px] uppercase">
-          AppFactory System v3.0 [v2]
+          AppFactory System v3.0
         </div>
       </div>
     </div>
@@ -1168,7 +1168,7 @@ function App() {
         <div
           onClick={handleThemeToggle}
           className="p-2 cursor-pointer text-vscode-accent hover:text-white transition-transform active:scale-95"
-          title="Promeni temu (v2)"
+          title="Promeni temu (Dark / Navy / Pearl White)"
         >
           <Activity size={24} />
         </div>
